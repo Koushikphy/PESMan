@@ -3,6 +3,7 @@
 
 import sqlite3
 
+#My first edit
 with sqlite3.connect("h3db.db") as con:
    con.row_factory=sqlite3.Row
    cur = con.cursor() 
