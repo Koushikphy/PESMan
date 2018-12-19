@@ -52,6 +52,21 @@ def ParseFile(sfile,lkeys):
    return lparse
 
 
+#an alternate concised version of the above function.
+#NOTE: Passing a file object here rather the content of the file is more efficient
+def ParseFile(sfile,lkeys):
+    lparse = {}
+    for i in sfile.splitlines():
+        if i.strip() and not i.startswith("#"):
+            # i = i.split("#")[0] # use this to additionally removes comments from mid line, which the original function doesn't
+            a,b = map(str.strip,i.split(":"))
+            lparse[a.upper()] = b
+    for key in lkeys:
+        assert (key.upper() in lparse), "Key: '%s' Not found in the File"%key
+    return lparse
+
+
+
 def GetResults(sres,fres):
     """ Grep the results from results file and return a tuple """
     lres = sres.split()
@@ -81,7 +96,7 @@ def GetResultsNact(fres):
       i=0
       while i<4:
         f.readline()
-	i += 1
+        i += 1
       str12 = f.readline()
       str12 += f.readline()
       str12 += f.readline()
@@ -91,7 +106,7 @@ def GetResultsNact(fres):
       i=0
       while i<4:
         f.readline()
-	i += 1
+        i += 1
       str13 = f.readline()
       str13 += f.readline()
       str13 += f.readline()
@@ -101,7 +116,7 @@ def GetResultsNact(fres):
       i=0
       while i<4:
         f.readline()
-	i += 1
+        i += 1
       str23 = f.readline()
       str23 += f.readline()
       str23 += f.readline()
@@ -114,6 +129,19 @@ def GetResultsNact(fres):
 
 ############################### Modified portion ends here! ###################################
 ###############################################################################################
+#an alternate concised version of the above function.
+# not tested !!!
+def GetResultsNact(fres):
+    lines2skip = 4
+    lines2read = 3
+    block2read = 3
+    m,n = lines2skip ,lines2skip +lines2read
+
+    with open(file,"r") as f :
+        data = f.read().split()
+        data = [j.replace('D','E') for i in range(block2read) for j in data[i*n+m:(i+1)*n]]
+        return " ".join(data)
+
 
 
 def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
@@ -142,7 +170,7 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
    # this is to identify the files to be imported.
    with open(CalcFile,'r') as f:
       sCalc = f.read()
-      f.close()
+      f.close() #remove all the f.close() inside with block, they are unnecessary
    dCalc = ParseFile(sCalc,["calcid","name","record","desc","geomid","basename","aux"])
 
    # sanity check the parsed details first
@@ -152,6 +180,8 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
    lrec = dCalc["RECORD"].split(".",1)
    # also accept default file name 2
    if len(lrec) == 2:
+      #the following kind of assert statement is unnecessary, as the next line will through the same error,
+      #even in more convenient way. Same is true for the assert in the else block.
       assert (lrec[0].isdigit() and lrec[1].isdigit())
       rec,fil = int(lrec[0]),int(lrec[1])
    elif len(lrec) == 1:
@@ -216,6 +246,15 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
       GeomRow = GeomRow[0]
       InfoRow = InfoRow[0]
 
+      #Does the following look more clear & concise than the above block
+      cur.execute('SELECT * from Geometry WHERE Id=?',(GeomId,))
+      GeomRow  = cur.fetchone()
+      assert GeomRow, "Geometry with Id : %s not found"%GeomId
+      
+      cur.execute('SELECT * from CalcInfo WHERE Id=?',(CalcId,))
+      InfoRow  = cur.fetchone()
+      assert InfoRow, "CalcInfo with Id : %s not found"%CalcId
+      ####################################################################
       # construct geometry object for this geometry and produce its xyz file
       gobj = geometry.Geometry(rho=GeomRow["rho"],theta=GeomRow["theta"],phi=GeomRow["phi"],id=GeomRow["id"])
       sXYZ = gobj.to_xyzstr()
