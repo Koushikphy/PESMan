@@ -107,10 +107,10 @@ def calc_rmsd(p,q):
     return np.sqrt(np.sum((p-q)**2)/p.shape[0])
 
 
-def jac2cart(geomData):
+def jac2cart(geom):
 
-    # the first element of geomData is actually geom id, so just skip it here, well, i know this is bad.
-    _, rs, rc, gamma = geomData
+    # the first element of geom is actually geom id, so just skip it here, well, i know this is bad.
+    rs, rc, gamma = geom
     # gamma = np.deg2rad(gamma) # should I convert it here or is it already in radian in table????
     f1y = rc*np.sin(gamma)
     f1z = rc*np.cos(gamma)
@@ -121,10 +121,10 @@ def jac2cart(geomData):
     return  np.array([[f1y,f1z], [h2y,h2z], [h3y,h3z] ])
 
 
-def geom_tags(geomData):
+def geom_tags(geom):
     """ generate tags for geometry """
-    theta = geomData[3]
-    dat = jac2cart(geomData)
+    theta = geom[2]
+    dat = jac2cart(geom)
     # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
     # so dists are distances of fh, hh, fh
     tmpdat = dat[[1, 2, 0]] - dat
@@ -166,7 +166,13 @@ def create_tables(dbfile,sql_script, main=False):
 
 
 
+# cartGeom is function that convert the geometry defined in normal mode/hyperspherical/jacobi to cartesian
+# here the grid is in Jacobi, so jac2cart
+cartGeom = jac2cart
+
+
 def getKabsch(geom, lim=10):
+    # the geomList has to be available on global scope, so that the pool worker threads can access it
     vGeom = geomList[np.where( 
                     (geomList[:,1] > geom[1]-4.5) & 
                     (geomList[:,1] < geom[1]+4.5) &
@@ -176,8 +182,8 @@ def getKabsch(geom, lim=10):
                     (geomList[:,3] < geom[3]+np.deg2rad(50.0)) &
                     (geomList[:, 0] != geom[0])
                     )]
-    cJac   = jac2cart(geom)
-    lkabsh = np.array([calc_rmsd(cJac, jac2cart(i))  for i in vGeom])
+    cJac   = cartGeom(geom[1:])
+    lkabsh = np.array([calc_rmsd(cJac, cartGeom(i[1:]))  for i in vGeom])
     index  = lkabsh.argsort()[:lim]
 
 
@@ -191,6 +197,9 @@ if __name__ == "__main__":
     dbfile = "fh2dbaltmult.db"
     dbnbr = "fh2db-nbraltmult.db"
 
+    # is it firstime the database is created? Some checks are not needed here
+    dbExist = os.path.exists(dbfile)
+
     create_tables(dbfile, sql_table_commands, main = True)
     create_tables(dbnbr, sql_nbrtable_commands)
 
@@ -202,7 +211,7 @@ if __name__ == "__main__":
 
 
     lsr = [1.445]
-    lcr = [(3.0 + 0.1*i) for i in range(20)]
+    lcr = [(3.0 + 0.1*i) for i in range(300)]
     lthe = [0.0]
     # index order correct ?
     newGeomList = np.dstack(np.meshgrid(lsr, lcr, lthe, indexing='ij')).reshape(-1,3)
@@ -231,24 +240,27 @@ if __name__ == "__main__":
 
 
 
-    curMain.executemany("""INSERT INTO Geometry (sr,cr,theta) VALUES (?, ?, ?)""", newGeomList)
 
-    # add a column just as the id of the table
-    # geomList = np.column_stack([np.arange(1, geomList.shape[0] + 1), geomList])
-    # fill the table with tags
+    if dbExist: # if it does exists then check if any duplicate geometry is being passed
+        print("here")
+        curMain.execute('select sr,cr,theta from geometry')
+        oldTable = np.array(curMain.fetchall())
+        dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
+        if dupInd.size:
+            print("%s duplicates found in new list of geometries"%dupInd.size)
+        newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
 
-    # Read updated table from database
+    assert newGeomList.size, "No new geometries to add"
+    # create the tags
+    tags = np.apply_along_axis(geom_tags,1, newGeomList)
+    # insert the geometries and tags into database
+    curMain.executemany("""INSERT INTO Geometry (sr,cr,theta,tags) VALUES (?, ?, ?,?)""", np.column_stack([ newGeomList, tags]))
+
+
+    #get the updated table
     curMain.execute('select id,sr,cr,theta from geometry')
     geomList= np.array(curMain.fetchall())
-    assert np.unique(geomList[:1:], axis=0).shape == geomList[:1:].shape, 'Duplicates geometry found in database.'
 
-    #! following lines checks for new geometries and only update those tags
-    # newIndex = np.all(np.isin( geomList, newGeomList, invert=True ), axis=1)
-    # newVals = geomList[newIndex]
-    # curMain.executemany("""UPDATE Geometry SET Tags=? WHERE Id=?""", [[geom_tags(i),i[0]] for i in newVals])
-
-    #! This line update all the tags irrespective of their already presence in database
-    curMain.executemany("""UPDATE Geometry SET Tags=? WHERE Id=?""", [[geom_tags(i),i[0]] for i in geomList])
     np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')
 
     # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)

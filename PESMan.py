@@ -53,29 +53,29 @@ data base. This allows flexibility to externally manipulate the data if needed.
            epilog='BEWARE: A PES is purely an artifact of Born-Oppenheimer separation!!!')
 
 # arguments for the main program
-parser.add_argument('--version', action='version', version='%(prog)s 0.1')
-parser.add_argument('-v', '--verbose', action='store_true', dest='Verbose', help='Increase output verbosity')
-parser.add_argument('--db', action='store', dest='DbMain', metavar='DB',
-         help=textwrap.dedent('''\
-             Main data base file.
-             This contains geometry grid, calculation types,
-             completed and currently exported calculations.
-             Default will be picked up from config file.\n
-             '''))
-parser.add_argument('--db-nbr', action='store', metavar='DB', dest='DbNbr',
-         help=textwrap.dedent('''\
-             Neighbour data base file.
-             This contains info on neighbours of geometries.
-             Used within certain export algorithms.
-             Default will be picked up from config file.\n
-             '''))
-parser.add_argument('--pes-dir', action='store', metavar='DIR', dest='PESDir',
-         help=textwrap.dedent('''\
-             Directory containing PES data.
-             This contains data of all completed calculations
-             organized in a hierarchical directory structure.
-             Default will be picked up from config file.\n
-             '''))
+# parser.add_argument('--version', action='version', version='%(prog)s 0.1')
+# parser.add_argument('-v', '--verbose', action='store_true', dest='Verbose', help='Increase output verbosity')
+# parser.add_argument('--db', action='store', dest='DbMain', metavar='DB',
+#          help=textwrap.dedent('''\
+#              Main data base file.
+#              This contains geometry grid, calculation types,
+#              completed and currently exported calculations.
+#              Default will be picked up from config file.\n
+#              '''))
+# parser.add_argument('--db-nbr', action='store', metavar='DB', dest='DbNbr',
+#          help=textwrap.dedent('''\
+#              Neighbour data base file.
+#              This contains info on neighbours of geometries.
+#              Used within certain export algorithms.
+#              Default will be picked up from config file.\n
+#              '''))
+# parser.add_argument('--pes-dir', action='store', metavar='DIR', dest='PESDir',
+#          help=textwrap.dedent('''\
+#              Directory containing PES data.
+#              This contains data of all completed calculations
+#              organized in a hierarchical directory structure.
+#              Default will be picked up from config file.\n
+#              '''))
 parser.add_argument('--config', action='store', metavar='FILE', dest='ConfigFile', default='pesman.config',
          help=textwrap.dedent('''\
              Use alternate configuration file.
@@ -188,27 +188,31 @@ parser_import = subparsers.add_parser('import',
                     description='Import calculations into the PES database.',
                     formatter_class=argparse.RawTextHelpFormatter,
                     help='Import a bunch of completed calculations')
-group_imp = parser_import.add_mutually_exclusive_group(required=True)
-group_imp.add_argument('-e','--exp', action='store', metavar='EF', dest='ExpFile',
+# group_imp = parser_import.add_mutually_exclusive_group(required=True)
+# group_imp.add_argument('-e','--exp', action='store', metavar='EF', dest='ExpFile',
+#                        help=textwrap.dedent('''\
+#                        Specify a .exp file for import.
+#                        This file would have been generated during export.'''))
+# group_imp.add_argument('-f', '--file', action='store', metavar='CF', dest='CalcFile',
+#                        help=textwrap.dedent('''\
+#                        Specify a .calc file for import.
+#                        This file will be scanned to perform import.
+#                        Import is not allowed if the job is already exported'''))
+# group_imp.add_argument('-d', '--dir', action='store', metavar='DIR', dest='CalcDir',
+#                        help=textwrap.dedent('''\
+#                        Specify a directory for import.
+#                        All .calc files in the directory will be tried.'''))
+parser_import.add_argument('-e','--exp', action='store', metavar='EF', dest='ExpFile',
                        help=textwrap.dedent('''\
                        Specify a .exp file for import.
                        This file would have been generated during export.'''))
-group_imp.add_argument('-f', '--file', action='store', metavar='CF', dest='CalcFile',
-                       help=textwrap.dedent('''\
-                       Specify a .calc file for import.
-                       This file will be scanned to perform import.
-                       Import is not allowed if the job is already exported'''))
-group_imp.add_argument('-d', '--dir', action='store', metavar='DIR', dest='CalcDir',
-                       help=textwrap.dedent('''\
-                       Specify a directory for import.
-                       All .calc files in the directory will be tried.'''))
 parser_import.add_argument('--id', metavar='EID', action='store', dest='ExportId',
                            type=int, default=0, help='ExportId of import.')
-parser_import.add_argument('--check', action='store_true', dest='ImportCheck',
-                           help=textwrap.dedent('''\
-                           Perform a dry run to check if import will work.
-                           Summary of changes that will happen is listed.
-                           It is a good practice to do this before every import.'''))
+# parser_import.add_argument('--check', action='store_true', dest='ImportCheck',
+#                            help=textwrap.dedent('''\
+#                            Perform a dry run to check if import will work.
+#                            Summary of changes that will happen is listed.
+#                            It is a good practice to do this before every import.'''))
 
 # create the parser for the "query" subcommand
 #
@@ -219,24 +223,24 @@ parser_import.add_argument('--check', action='store_true', dest='ImportCheck',
 #
 # --close     Close an export and expunge its remaining jobs from ExpCalc table.
 
-parser_query = subparsers.add_parser('query',
-                    description='Query or modify the PES database.',
-                    formatter_class=argparse.RawTextHelpFormatter,
-                    help='Query or modify the PES database.')
-parser_query.add_argument('--close', metavar='EID', action='store', dest='ExportIdToClose', type=int, default=0,
-                          help='Close an export and expunge remaining jobs from ExpCalc table.')
+# parser_query = subparsers.add_parser('query',
+#                     description='Query or modify the PES database.',
+#                     formatter_class=argparse.RawTextHelpFormatter,
+#                     help='Query or modify the PES database.')
+# parser_query.add_argument('--close', metavar='EID', action='store', dest='ExportIdToClose', type=int, default=0,
+#                           help='Close an export and expunge remaining jobs from ExpCalc table.')
 
 if __name__ == '__main__':
 
     # by default 'pesman.config' file is located in the same directory as this python file
-    DefaultConfigDir = os.path.abspath(os.path.dirname(sys.argv[0]))
+   #  DefaultConfigDir = os.path.abspath(os.path.dirname(sys.argv[0]))
 
     # parse the command line arguments
     Args = parser.parse_args()
 
-    # first check if a different config file is provided '--config'
-    if not Args.ConfigFile:
-       Args.ConfigFile = DefaultConfigDir + "/" + "pesman.config"
+   # first check if a different config file is provided '--config'
+   #  if not Args.ConfigFile:
+      #  Args.ConfigFile = DefaultConfigDir + "/" + "pesman.config"
 
     # parse the config file through ConfigParser class
     ConfParser = ConfigParser.SafeConfigParser()
@@ -367,18 +371,18 @@ if __name__ == '__main__':
        print "\nPESMan: Successfully Imported!"
 
 
-    # Execute a query command
-    if Args.subcommand == 'query':
+   #  # Execute a query command
+   #  if Args.subcommand == 'query':
        
-       print "PESMan: Query "
-       print "**************"
-       print "   Db         \t = ", Args.DbMain
-       print "   DbNbr      \t = ", Args.DbNbr
-       print "   PESDir     \t = ", Args.PESDir
+   #     print "PESMan: Query "
+   #     print "**************"
+   #     print "   Db         \t = ", Args.DbMain
+   #     print "   DbNbr      \t = ", Args.DbNbr
+   #     print "   PESDir     \t = ", Args.PESDir
 
-       if Args.ExportIdToClose != 0:
+   #     if Args.ExportIdToClose != 0:
 
-          ImpExp.CloseExport(Db=Args.DbMain,ExportId=Args.ExportIdToClose,Verbose=True)
+   #        ImpExp.CloseExport(Db=Args.DbMain,ExportId=Args.ExportIdToClose,Verbose=True)
 
           
 
