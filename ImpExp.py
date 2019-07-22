@@ -12,6 +12,8 @@ import misc
 import re
 import subprocess
 import bisect
+import parse
+import soeigen
 
 def GenCalcFile(CalcId,GeomId,CalcName,Record,Basename,Desc="",Aux=""):
 
@@ -52,21 +54,6 @@ def ParseFile(sfile,lkeys):
    return lparse
 
 
-#an alternate concised version of the above function.
-#NOTE: Passing a file object here rather the content of the file is more efficient
-def ParseFile(sfile,lkeys):
-    lparse = {}
-    for i in sfile.splitlines():
-        if i.strip() and not i.startswith("#"):
-            # i = i.split("#")[0] # use this to additionally removes comments from mid line, which the original function doesn't
-            a,b = map(str.strip,i.split(":"))
-            lparse[a.upper()] = b
-    for key in lkeys:
-        assert (key.upper() in lparse), "Key: '%s' Not found in the File"%key
-    return lparse
-
-
-
 def GetResults(sres,fres):
     """ Grep the results from results file and return a tuple """
     lres = sres.split()
@@ -96,7 +83,7 @@ def GetResultsNact(fres):
       i=0
       while i<4:
         f.readline()
-        i += 1
+	i += 1
       str12 = f.readline()
       str12 += f.readline()
       str12 += f.readline()
@@ -106,7 +93,7 @@ def GetResultsNact(fres):
       i=0
       while i<4:
         f.readline()
-        i += 1
+	i += 1
       str13 = f.readline()
       str13 += f.readline()
       str13 += f.readline()
@@ -116,7 +103,7 @@ def GetResultsNact(fres):
       i=0
       while i<4:
         f.readline()
-        i += 1
+	i += 1
       str23 = f.readline()
       str23 += f.readline()
       str23 += f.readline()
@@ -129,19 +116,6 @@ def GetResultsNact(fres):
 
 ############################### Modified portion ends here! ###################################
 ###############################################################################################
-#an alternate concised version of the above function.
-# not tested !!!
-def GetResultsNact(fres):
-    lines2skip = 4
-    lines2read = 3
-    block2read = 3
-    m,n = lines2skip ,lines2skip +lines2read
-
-    with open(file,"r") as f :
-        data = f.read().split()
-        data = [j.replace('D','E') for i in range(block2read) for j in data[i*n+m:(i+1)*n]]
-        return " ".join(data)
-
 
 
 def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
@@ -170,7 +144,7 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
    # this is to identify the files to be imported.
    with open(CalcFile,'r') as f:
       sCalc = f.read()
-      f.close() #remove all the f.close() inside with block, they are unnecessary
+      f.close()
    dCalc = ParseFile(sCalc,["calcid","name","record","desc","geomid","basename","aux"])
 
    # sanity check the parsed details first
@@ -180,8 +154,6 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
    lrec = dCalc["RECORD"].split(".",1)
    # also accept default file name 2
    if len(lrec) == 2:
-      #the following kind of assert statement is unnecessary, as the next line will through the same error,
-      #even in more convenient way. Same is true for the assert in the else block.
       assert (lrec[0].isdigit() and lrec[1].isdigit())
       rec,fil = int(lrec[0]),int(lrec[1])
    elif len(lrec) == 1:
@@ -246,17 +218,8 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
       GeomRow = GeomRow[0]
       InfoRow = InfoRow[0]
 
-      #Does the following look more clear & concise than the above block
-      cur.execute('SELECT * from Geometry WHERE Id=?',(GeomId,))
-      GeomRow  = cur.fetchone()
-      assert GeomRow, "Geometry with Id : %s not found"%GeomId
-      
-      cur.execute('SELECT * from CalcInfo WHERE Id=?',(CalcId,))
-      InfoRow  = cur.fetchone()
-      assert InfoRow, "CalcInfo with Id : %s not found"%CalcId
-      ####################################################################
       # construct geometry object for this geometry and produce its xyz file
-      gobj = geometry.Geometry(rho=GeomRow["rho"],theta=GeomRow["theta"],phi=GeomRow["phi"],id=GeomRow["id"])
+      gobj = geometry.Geometry(sr=GeomRow["sr"],cr=GeomRow["cr"],theta=GeomRow["theta"],id=GeomRow["id"])
       sXYZ = gobj.to_xyzstr()
 
       # xyz file also must match -- just to make sure
@@ -305,6 +268,7 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
       fDbPun = BaseNameDb + ".pun"
       fDbXml = BaseNameDb + ".xml"
       fDbXYZ = BaseNameDb + ".xyz"
+      fDbCalc = BaseNameDb + ".calc"
 
       # we will not copy calc file, it is neither necessary nor useful.
       # TODO: it may be better to generate a new .calc file and save it.
@@ -330,21 +294,35 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
       else:
          # create it now
          os.mkdir(DestCalcDir,0775)
-      
+       
       DestDir = os.path.relpath(DestCalcDir,start=DataDir)
       
       # collect all the information into a tuple for insertion to Calc data base
       # we will now insert Dir field to be relative to DataDir
       tcalc = (GeomId,CalcId,DestDir,fDbWfu,dCalc["RECORD"],fDbInp,\
                fDbOut,fDbRes,dCalc["AUX"],sResults,dCalc["DESC"])
+
+      sSOMatelem = parse.parseso(fOut)
+      sSOener = soeigen.soeigen(sSOMatelem,sResults)
+
+
       try:
         cur.execute("""INSERT INTO Calc (GeomId,CalcId,Dir,WfnFile,OrbRec,InputFile,
                        OutputFile,ResultFile,AuxFiles,Results,Desc)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", tcalc)
 
+        cur.execute("SELECT id FROM CALC where GeomId=? and calcid = ?",(GeomId,CalcId))
+        idrow = cur.fetchall()
+        assert (len(idrow) == 1)
+        idrow = idrow[0]
+
+        tres = (GeomId,idrow["id"],sResults,sSOMatelem,sSOener)
+
+        cur.execute("""INSERT INTO Results (GeomId,CalcId,Energy,Somatel,Soener)
+                       VALUES (?, ?, ?, ?, ?)""", tres)
+
         # Now we copy into DestCalcDir as different files
         # DestCalcDir will have full path name
-        # .calc file should not be copied to dest -- its useless
         # if INSERT fails, this code is not executed
         # in the most unlikely case, the directory would not be added to data base
         shutil.copy(fXYZ,DestCalcDir + "/" + fDbXYZ)
@@ -352,6 +330,7 @@ def ImportCalc(Db,CalcDir,CalcFile,DataDir,Verbose=False,Check=False):
         shutil.copy(fInp,DestCalcDir + "/" + fDbInp)
         shutil.copy(fOut,DestCalcDir + "/" + fDbOut)
         shutil.copy(fRes,DestCalcDir + "/" + fDbRes)
+        shutil.copy(fCalc,DestCalcDir + "/" + fDbCalc)
         if misc.CheckFileAccess(fPun,bRead=True,bAssert=False):
            shutil.copy(fPun,DestCalcDir + "/" + fDbPun)
         if misc.CheckFileAccess(fXml,bRead=True,bAssert=False):
@@ -646,7 +625,7 @@ def GetExpGeomNearNbr(Db,CalcTypeId,GidSingle=0,GidList=[],SidList=[],MaxGeom=50
       # the 'calc' table of the database.
 
 #--------------------------------------------------------------------------------
-      lPrblmGeomIds = [1232]
+      lPrblmGeomIds = []
 #--------------------------------------------------------------------------------
 
       ExcludeGeomIds.extend(lPrblmGeomIds)
@@ -927,7 +906,7 @@ def GetExpGeomNearNbr(Db,CalcTypeId,GidSingle=0,GidList=[],SidList=[],MaxGeom=50
 ###############################################################################################
 # The following definition in the code is added by Bijit:
 
-def GetExpMrciNactJobs(Db,CalcTypeId,MaxGeom=50,Verbose=False):
+def GetExpMrciNactJobs(Db,CalcTypeId,MaxGeom=50,ConstDb="",Verbose=False):
    """ Returns a list of geometries for MRCI or NACT calc- to be exported.
        A list of (GeomId,CalcId) is returned where
           GeomId : geometry to be exported
@@ -978,6 +957,21 @@ def GetExpMrciNactJobs(Db,CalcTypeId,MaxGeom=50,Verbose=False):
       # sort this list so that binary search can be done on it
       ExcludeGeomIds.sort()
 
+
+      if ConstDb:
+         sConst = " where " + ConstDb
+      else:
+         sConst = ""
+
+      cur.execute("SELECT Id FROM Geometry" + sConst)
+      lgeomcon = cur.fetchall()
+
+      ConstGeomIds = []
+      for lg in lgeomcon:
+          ConstGeomIds.append(lg['Id'])
+
+      ConstGeomIds.sort()
+
       # initialize the the list of geometries which can be exported
       # the corresponding list contains calcid of the same geoms of calc-id = 1
       ExpGeomIdList = []
@@ -990,7 +984,7 @@ def GetExpMrciNactJobs(Db,CalcTypeId,MaxGeom=50,Verbose=False):
 	 StartId = row["Id"]
 
 	 # the geomid must not be in the exclude list
-         if GeomId not in ExcludeGeomIds:
+         if GeomId not in ExcludeGeomIds and GeomId in ConstGeomIds:
 	    ExpGeomIdList.append(GeomId)
 	    ExpCalcIdList.append(StartId)
 
@@ -1024,15 +1018,15 @@ def ExportCalc(Db,GeomId,CalcTypeId,DataDir,ExpDir,ComTemplate="",StartId=0,Base
                         * a completed calculation at a neighbouring geometry of this geometry.
                         * another completed calculation at this geometry.
    """
-   # first do some sanity checks before we export.
-   misc.CheckDirAccess(DataDir,bRead=True,bAssert=True)
-   misc.CheckDirAccess(ExpDir,bRead=False,bAssert=True)
-   misc.CheckFileAccess(Db,bRead=True,bAssert=True)
+   # # first do some sanity checks before we export.
+   # misc.CheckDirAccess(DataDir,bRead=True,bAssert=True)
+   # misc.CheckDirAccess(ExpDir,bRead=False,bAssert=True)
+   # misc.CheckFileAccess(Db,bRead=True,bAssert=True)
 
    # the given geometry must exist in the Geometry table
    # the calculation must be defined in the CalcInfo table.
-   assert (GeomId)
-   assert (CalcTypeId)
+   # assert (GeomId)
+   # assert (CalcTypeId)
    with sqlite3.connect(Db) as con:
 
       # use row factory which is far better and has dictionary-like access to data
@@ -1042,10 +1036,10 @@ def ExportCalc(Db,GeomId,CalcTypeId,DataDir,ExpDir,ComTemplate="",StartId=0,Base
       # GeomId and CalcTypeId check
       cur.execute('SELECT * from Geometry WHERE Id=?',(GeomId,))
       geom_row = cur.fetchall()
-      assert (len(geom_row) == 1)
+      # assert (len(geom_row) == 1)
       cur.execute('SELECT * from CalcInfo WHERE Id=?',(CalcTypeId,))
       info_row = cur.fetchall()
-      assert (len(info_row) == 1)
+      # assert (len(info_row) == 1)
       # extract details of this geometry and calculation, we will need them later
       GeomRow = geom_row[0]
       InfoRow = info_row[0]
@@ -1135,7 +1129,7 @@ def ExportCalc(Db,GeomId,CalcTypeId,DataDir,ExpDir,ComTemplate="",StartId=0,Base
 
       # now we are ready to generate files, first calc and xyz files
       sCalcFile = GenCalcFile(CalcTypeId,GeomId,CalcName,Record,BaseName,Desc="",Aux="Start GId - " + str(StartGId))
-      GeomObj = geometry.Geometry(GeomRow["rho"],GeomRow["theta"],GeomRow["phi"],id=GeomId)
+      GeomObj = geometry.Geometry(GeomRow["sr"],GeomRow["cr"],GeomRow["theta"],id=GeomId)
       sXYZFile = GeomObj.to_xyzstr()
 
       # write them out
@@ -1190,9 +1184,6 @@ def ExportCalc(Db,GeomId,CalcTypeId,DataDir,ExpDir,ComTemplate="",StartId=0,Base
 def ExportGeometries(Args,ExportList,ExpDir):
    """ this exports a list of geometries to separate directories """
 
-   # ExpDir should have write access, and PES Data Dir must have read access
-   misc.CheckDirAccess(ExpDir,bRead=False,bAssert=True)
-   misc.CheckDirAccess(Args.PESDir,bRead=True,bAssert=True)
 
    ExportedDirs = []
    for (GeomId,StartCalcId,BaseSuffix) in ExportList:
@@ -1229,20 +1220,10 @@ def cd(newdir):
     finally:
         os.chdir(prevdir)
 
-def RunMolpro(RunDir,ScrDir,ComFile,bDryRun=False):
+def RunMolpro(RunDir,ScrDir,ComFile):
    """ This runs molpro file 'ComFile' located in RunDir. """
    with cd(RunDir):
-      if bDryRun:
-         # create all files that molpro would do
-         base,ext = os.path.splitext(ComFile)
-         subprocess.call(["touch",base+".wfu"])
-         subprocess.call(["touch",base+".out"])
-         subprocess.call(["touch",base+".res"])
-         subprocess.call(["touch",base+".pun"])
-         subprocess.call(["touch",base+".xml"])
-         exitcode = 0
-      else:
-         exitcode = subprocess.call(["molpro", "-d", ScrDir, "-W .", ComFile])
+         exitcode = subprocess.call(["molpro", "-d", ScrDir, "-W .", "-n","2", ComFile])
       return exitcode
 
 def ParseFile(sfile,lkeys):
@@ -1309,7 +1290,7 @@ def RunExportedCalcs(MolproScrDir):
       os.mkdir(ScrDirCalc,0775)
       fComBaseFile = RunDir + ".com"
 
-      exitcode = RunMolpro(RunDir,ScrDirCalc,fComBaseFile,bDryRun=False)
+      exitcode = RunMolpro(RunDir,ScrDirCalc,fComBaseFile)
 
       if exitcode == 0:
 
@@ -1346,8 +1327,8 @@ def RunExportedCalcs(MolproScrDir):
 if __name__ == '__main__':
 
    # define molpro scratch, this will be properly expanded during runtime
-   #MolproScrDir = "~/MOLPRO_SCRATCH"
-   MolproScrDir = "/tmp/bijit"
+   MolproScrDir = "~/MOLPRO_SCRATCH"
+   #MolproScrDir = "/tmp/bijit"
    
    # now run jobs
    RunExportedCalcs(MolproScrDir)
@@ -1361,17 +1342,17 @@ def ExportNearNbrJobs(Args):
    """
 
    # ExportDir should have write access
-   misc.CheckDirAccess(Args.ExportDir,bRead=False,bAssert=True)
+   # misc.CheckDirAccess(Args.ExportDir,bRead=False,bAssert=True)
 
    # first obtain a list of geometries to be exported
-   assert (Args.CalcTypeId)
+   # assert (Args.CalcTypeId)
 
    # To export MRCI geometries, the following if-else is added:
    # CalcId = 2 corresponds to MRCI (this should be correct otherwise error will return)
-   if Args.CalcTypeId > 1:            
+   if Args.CalcTypeId > 1:
 
       ExpGeomList = GetExpMrciNactJobs(Args.DbMain,Args.CalcTypeId,
-              MaxGeom=Args.NumJobs,Verbose=Args.Verbose)
+              MaxGeom=Args.NumJobs,ConstDb=Args.ConstDb,Verbose=Args.Verbose)
 
    else:
       ExpGeomList = GetExpGeomNearNbr(Args.DbMain,Args.CalcTypeId,Args.GeomId,Args.GeomIdList,
@@ -1380,7 +1361,7 @@ def ExportNearNbrJobs(Args):
 
 
    # we will make sure all the data for export is available before initiating the export
-   misc.CheckDirAccess(Args.PESDir,bRead=True,bAssert=True)
+   # misc.CheckDirAccess(Args.PESDir,bRead=True,bAssert=True)
    with sqlite3.connect(Args.DbMain) as con:
       
       con.row_factory=sqlite3.Row
@@ -1389,7 +1370,7 @@ def ExportNearNbrJobs(Args):
       # first find info about this calculation type
       cur.execute('SELECT * from CalcInfo WHERE Id=?',(Args.CalcTypeId,))
       info_row = cur.fetchall()
-      assert (len(info_row) == 1)
+      # assert (len(info_row) == 1)
       InfoRow = info_row[0]
       # extract details about all calculations referred in list of exported geometries
       cur.execute("SELECT * FROM Calc WHERE Id in (" + ",".join([str(y) for x,y in ExpGeomList]) + ")")
@@ -1445,7 +1426,7 @@ def ExportNearNbrJobs(Args):
       cur.executemany("INSERT INTO ExpCalc (ExpId,GeomId,CalcDir) VALUES (?,?,?)",lexpcalc)
 
       # commit the changes      
-      con.commit()
+      # con.commit()
 
       # now, we are almost done!
       # we need to generate remaining files
@@ -1460,8 +1441,8 @@ def ExportNearNbrJobs(Args):
       # change mode of this file to read-only to prevent accidental writes
       os.chmod(fExportDat,0444)
 
-      if Args.Verbose:
-         print "Export with ExportId =", ExportId, " has been entered into data base ", Args.DbMain
+      # if Args.Verbose:
+      #    print "Export with ExportId =", ExportId, " has been entered into data base ", Args.DbMain
 
       # the python file needs to be generated
       fPythonFile = ExpDir + "/" + "RunJob" + str(ExportId) + ".py"
@@ -1470,43 +1451,43 @@ def ExportNearNbrJobs(Args):
          f.write("\n")
          f.close()
 
-      if Args.Verbose:
-         print "Use Python file ", fPythonFile, "to run the generated jobs."
+      # if Args.Verbose:
+      #    print "Use Python file ", fPythonFile, "to run the generated jobs."
 
       # chmod to executable
-      os.chmod(fPythonFile,0766)
+      # os.chmod(fPythonFile,0766)
 
-def CloseExport(Db,ExportId,Verbose=False):
-    """ Close an export which is still open; expunge all its remaining jobs.
-        This can be used when the export is no longer required to be open.
-    """
-    # now remove imported job from ExpCalc table in data base
-    # update Exports table with imported list of geometries
-    # if all geometries are imported, change the status
-    with sqlite3.connect(Db) as con:
-        # use row factory which is far better and has dictionary-like access to data
-        con.row_factory = sqlite3.Row
-        cur = con.cursor()
-        # obtain details of export to be closed
-        cur.execute('SELECT * FROM Exports WHERE Id=?',(ExportId,))
-        exp_row = cur.fetchall()
-        ExpInfo = None
-        if exp_row:
-            assert (len(exp_row) == 1)
-            ExpInfo = exp_row[0]
-        else:
-            raise Exception("ExportId = " + str(ExportId) + " not found in data base")           
-        # also check if this export is "open"
-        if ExpInfo['Status'] != 0:
-            raise Exception("Can not close. Export Id " + str(ExportId) + " is already closed.")
-        # now expunge all pending jobs of this export
-        cur.execute('DELETE FROM ExpCalc WHERE ExpId=?',(ExportId,))
-        # now set the status to indicate closure
-        cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(ExportId,))
-        # all done
-        con.commit()
-        if Verbose:
-           print "Export " + str(ExportId) + " has been successfully closed."
+# def CloseExport(Db,ExportId,Verbose=False):
+#     """ Close an export which is still open; expunge all its remaining jobs.
+#         This can be used when the export is no longer required to be open.
+#     """
+#     # now remove imported job from ExpCalc table in data base
+#     # update Exports table with imported list of geometries
+#     # if all geometries are imported, change the status
+#     with sqlite3.connect(Db) as con:
+#         # use row factory which is far better and has dictionary-like access to data
+#         con.row_factory = sqlite3.Row
+#         cur = con.cursor()
+#         # obtain details of export to be closed
+#         cur.execute('SELECT * FROM Exports WHERE Id=?',(ExportId,))
+#         exp_row = cur.fetchall()
+#         ExpInfo = None
+#         if exp_row:
+#             assert (len(exp_row) == 1)
+#             ExpInfo = exp_row[0]
+#         else:
+#             raise Exception("ExportId = " + str(ExportId) + " not found in data base")           
+#         # also check if this export is "open"
+#         if ExpInfo['Status'] != 0:
+#             raise Exception("Can not close. Export Id " + str(ExportId) + " is already closed.")
+#         # now expunge all pending jobs of this export
+#         cur.execute('DELETE FROM ExpCalc WHERE ExpId=?',(ExportId,))
+#         # now set the status to indicate closure
+#         cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(ExportId,))
+#         # all done
+#         con.commit()
+#         if Verbose:
+#            print "Export " + str(ExportId) + " has been successfully closed."
 
 if __name__ == "__main__":
 

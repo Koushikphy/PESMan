@@ -1,0 +1,26 @@
+***,NO2
+! $F$ : basename to be substituted
+! $R$ : record name
+! $S$ : starting record name if it is available
+memory,100,m
+file,2,$F$.wfu
+punch,$F$.pun
+
+basis={spdf,n,cc-pvtz;spdf,o,cc-pvtz};
+
+symmetry,z
+geometry=$F$.xyz
+
+{mcscf;occ,11,3;closed,3,0;
+wf,23,1,1;state,2;
+wf,23,2,1;state,2;
+maxiter,40;
+start,$S$;
+orbital,$R$;}
+
+$resvars = [E1,E2,E3,E4]
+
+show,energy
+table,resvars,energy
+save,$F$.res,new
+title 'results: Energies ---  $F$'
