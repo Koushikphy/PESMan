@@ -198,7 +198,6 @@ if __name__ == "__main__":
     dbnbr = "fh2db-nbraltmult.db"
 
     # is it firstime the database is created? Some checks are not needed here
-    dbExist = os.path.exists(dbfile)
 
     create_tables(dbfile, sql_table_commands, main = True)
     create_tables(dbnbr, sql_nbrtable_commands)
@@ -241,7 +240,7 @@ if __name__ == "__main__":
 
 
 
-    if dbExist: # if it does exists then check if any duplicate geometry is being passed
+    if os.path.exists(dbfile): # if it does exists then check if any duplicate geometry is being passed
         print("here")
         curMain.execute('select sr,cr,theta from geometry')
         oldTable = np.array(curMain.fetchall())

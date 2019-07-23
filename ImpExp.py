@@ -1194,9 +1194,9 @@ def ExportGeometries(Args,ExportList,ExpDir):
       ExportedDirs.append(BaseName)
 
    # done, return list of exported directories for later processing
-   if Args.Verbose:
-      print
-      print "\tA total of ",len(ExportedDirs)," geometries has been exported to jobs in ",ExpDir
+   # if Args.Verbose:
+   #    print
+   #    print "\tA total of ",len(ExportedDirs)," geometries has been exported to jobs in ",ExpDir
    return ExportedDirs
 
 sRunJobPythonFilePrefix = r'''#!/usr/bin/python
@@ -1376,21 +1376,22 @@ def ExportNearNbrJobs(Args):
       cur.execute("SELECT * FROM Calc WHERE Id in (" + ",".join([str(y) for x,y in ExpGeomList]) + ")")
       # this hack isnt recommended in sqlite3  -----> ^^^^^^^^^^^^
       lrow = cur.fetchall()
-      for row in lrow:
-         Dir = Args.PESDir+"/"+row['dir']
-         misc.CheckDirAccess(Dir,bRead=True,bAssert=True)
+      #? removing it for now
+      # for row in lrow:
+      #    Dir = Args.PESDir+"/"+row['dir']
+         # misc.CheckDirAccess(Dir,bRead=True,bAssert=True)
          # wave-function file -- it may be in gzip form
-         if misc.CheckFileAccess(Dir+"/"+row['WfnFile'],bRead=True,bAssert=False):
+         # if misc.CheckFileAccess(Dir+"/"+row['WfnFile'],bRead=True,bAssert=False):
             # file is there in uncompressed form
-            pass
-         elif misc.CheckFileAccess(Dir+"/"+row['WfnFile']+".gz",bRead=True,bAssert=False):
+            # pass
+         # elif misc.CheckFileAccess(Dir+"/"+row['WfnFile']+".gz",bRead=True,bAssert=False):
             # file is in compressed form
-            pass
-         else:
+            # pass
+         # else:
             # file is not there
-            raise Exception("WfnFile = " + row['WfnFile'] + " is not available for export.")
+            # raise Exception("WfnFile = " + row['WfnFile'] + " is not available for export.")
          # the orbital record must be meaningful
-         assert(row['OrbRec'])
+         # assert(row['OrbRec'])
 
       # now we export -- things perhaps wont fail now
       # first insert a new row into Exports Table and get its id
@@ -1398,13 +1399,18 @@ def ExportNearNbrJobs(Args):
       ExportId = cur.lastrowid
 
       # create a subdir under ExpDir where the current export data goes
-      ExpDir = Args.ExportDir + "/" + "Export" + str(ExportId) + "-" + InfoRow['type'] + str(Args.CalcTypeId)
-      os.mkdir(ExpDir,0775)
+      # ExpDir = Args.ExportDir + "/" + "Export" + str(ExportId) + "-" + InfoRow['type'] + str(Args.CalcTypeId)
+      # os.mkdir(ExpDir,0775)
+
+      #* **********
+      ExpDir = "{}/Export{}-{}{}".format(Args.ExportDir, ExportId, InfoRow[0], Args.CalcTypeId)
+      os.makedirs(ExpDir)
 
       # prepare a list of geometries to be exported with suffix
       ExpGeomListSuffix = []
-      nexp = len(ExpGeomList)
+      nExp = len(ExpGeomList)
      
+     #! why is this needed?
       for i in range(len(ExpGeomList)):
          s = str(i+1)
          ExpGeomListSuffix.append(ExpGeomList[i]+(s,)) # <- tuple addition here
@@ -1418,7 +1424,7 @@ def ExportNearNbrJobs(Args):
                    (len(ExportedDirList),os.path.abspath(ExpDir),ExportId))
 
       # we will also need to enter exported geometries in ExpCalc table
-      assert(len(ExportedDirList) == len(ExpGeomListSuffix))
+      # assert(len(ExportedDirList) == len(ExpGeomListSuffix))
       lexpcalc = []
       for i in range(len(ExportedDirList)):
          lexpcalc.append((ExportId,ExpGeomListSuffix[i][0],ExportedDirList[i]))
