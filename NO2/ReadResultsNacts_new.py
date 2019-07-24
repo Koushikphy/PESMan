@@ -13,7 +13,8 @@ with sqlite3.connect('no2db.db') as con:
 # This is the list of indexes in geomrow corresponding to the id in calcrow
 sortedIndex = np.searchsorted(GeomRow[:,0], CalcRow[:,0], sorter=GeomRow[:,0].argsort())
 resArr = np.column_stack([ GeomRow[sortedIndex][:,1:], CalcRow[:,1:]]) # array of [[rho, phi, results..]...]
-
+# sort out jumbling of rho, phi values, also remove any duplicates in process
+resArr = np.unique(resArr, axis=0)
 
 hcross    = 0.06350781278
 cminvtinv = 0.001883651

@@ -13,11 +13,13 @@ with sqlite3.connect('./no2db.db') as con:
 # This is the list of indexes in geomrow corresponding to the id in calcrow
 sortedIndex = np.searchsorted(GeomRow[:,0], CalcRow[:,0], sorter=GeomRow[:,0].argsort())
 resArr = np.column_stack([ GeomRow[sortedIndex][:,1:], CalcRow[:,1:]])
+# sort out jumbling of rho, phi values, also remove any duplicates in process
+resArr = np.unique(resArr, axis=0)
 
-ResDir = 'Res'
+ResDir = '.'
 
 # ResDir = "Result_files_Multi"
-gRes = open(ResDir+'/Enr.dat', "wb")
+gRes = open(ResDir+'/Enr1.dat', "wb")
 rhoList = np.unique(resArr[:,0])
 
 for rho in rhoList:

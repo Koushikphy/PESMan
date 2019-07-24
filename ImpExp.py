@@ -578,7 +578,7 @@ def GetExpGeomNearNbr(Db,CalcTypeId,GidSingle=0,GidList=[],SidList=[],MaxGeom=50
       # first collect list of geometries for which calculations have been done
       cur.execute("SELECT Id,GeomId FROM Calc WHERE CalcId=?",(CalcTypeId,))
       lrow = cur.fetchall()
-      if lrow and len(lrow) < MaxGeom:
+      if lrow and len(lrow) < MaxGeom:  #! ????
          raise Exception("Not enough number of completed calculations present in database")
 
       # create a list of geometry ids of completed calculations
