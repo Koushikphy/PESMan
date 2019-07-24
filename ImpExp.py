@@ -569,7 +569,7 @@ def GetExpGeomNearNbr(Db,CalcTypeId,GidSingle=0,GidList=[],SidList=[],MaxGeom=50
        
    """
 
-   misc.CheckFileAccess(Db,bRead=True,bAssert=True)
+   # misc.CheckFileAccess(Db,bRead=True,bAssert=True)
    with sqlite3.connect(Db) as con:
 
       con.row_factory=sqlite3.Row
