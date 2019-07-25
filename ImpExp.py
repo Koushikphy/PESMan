@@ -968,7 +968,7 @@ def GetExpMrciNactJobs(Db,CalcTypeId,MaxGeom=50,ConstDb="",Verbose=False):
 
       ConstGeomIds = []
       for lg in lgeomcon:
-          ConstGeomIds.append(lg['Id'])
+         ConstGeomIds.append(lg['Id'])
 
       ConstGeomIds.sort()
 
@@ -981,12 +981,12 @@ def GetExpMrciNactJobs(Db,CalcTypeId,MaxGeom=50,ConstDb="",Verbose=False):
       row = cur.fetchone()
       while row:
          GeomId = row["GeomId"]
-	 StartId = row["Id"]
+         StartId = row["Id"]
 
 	 # the geomid must not be in the exclude list
          if GeomId not in ExcludeGeomIds and GeomId in ConstGeomIds:
-	    ExpGeomIdList.append(GeomId)
-	    ExpCalcIdList.append(StartId)
+            ExpGeomIdList.append(GeomId)
+            ExpCalcIdList.append(StartId)
 
          # fetch next one
          row = cur.fetchone()
@@ -1376,22 +1376,21 @@ def ExportNearNbrJobs(Args):
       cur.execute("SELECT * FROM Calc WHERE Id in (" + ",".join([str(y) for x,y in ExpGeomList]) + ")")
       # this hack isnt recommended in sqlite3  -----> ^^^^^^^^^^^^
       lrow = cur.fetchall()
-      #? removing it for now
-      # for row in lrow:
-      #    Dir = Args.PESDir+"/"+row['dir']
-         # misc.CheckDirAccess(Dir,bRead=True,bAssert=True)
+      for row in lrow:
+         Dir = Args.PESDir+"/"+row['dir']
+         misc.CheckDirAccess(Dir,bRead=True,bAssert=True)
          # wave-function file -- it may be in gzip form
-         # if misc.CheckFileAccess(Dir+"/"+row['WfnFile'],bRead=True,bAssert=False):
-            # file is there in uncompressed form
-            # pass
-         # elif misc.CheckFileAccess(Dir+"/"+row['WfnFile']+".gz",bRead=True,bAssert=False):
-            # file is in compressed form
-            # pass
-         # else:
+         if misc.CheckFileAccess(Dir+"/"+row['WfnFile'],bRead=True,bAssert=False):
+            file is there in uncompressed form
+            pass
+         elif misc.CheckFileAccess(Dir+"/"+row['WfnFile']+".gz",bRead=True,bAssert=False):
+            file is in compressed form
+            pass
+         else:
             # file is not there
-            # raise Exception("WfnFile = " + row['WfnFile'] + " is not available for export.")
+            raise Exception("WfnFile = " + row['WfnFile'] + " is not available for export.")
          # the orbital record must be meaningful
-         # assert(row['OrbRec'])
+         assert(row['OrbRec'])
 
       # now we export -- things perhaps wont fail now
       # first insert a new row into Exports Table and get its id
