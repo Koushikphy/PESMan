@@ -710,7 +710,7 @@ def GetExpGeomNearNbr(Db,CalcTypeId,GidSingle=0,GidList=[],SidList=[],MaxGeom=50
                elif DictStartId[GeomId] < 0:
                   NbrId = GeomRow[NNIdField]
                else:
-	          NbrId = 0
+                  NbrId = 0
             else: 
                NbrId = GeomRow[NNIdField]
 

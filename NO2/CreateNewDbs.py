@@ -9,7 +9,7 @@ Id INTEGER PRIMARY KEY,
 Rho REAL,
 Phi REAL,
 Tags TEXT,
-Desc TEXT, NNId Integer, NNId1 Integer, NNId2 Integer);
+Desc TEXT, NNId Integer, NNId1 Integer, NNId2 Integer, Nnbr TEXT);
 CREATE TABLE CalcInfo(
 Id INTEGER PRIMARY KEY,
 Type TEXT NOT NULL,
@@ -158,11 +158,12 @@ def create_nbr_info(dbmain, dbnbr):
 
          # consider first thirty geometries into this list
          lgeom_near = lnear_all[0:min(30,len(lnear_all))]
+         txt = ' '.join([str(i.id) for i in lgeom_near])
 
          # now add first three geometries to Geometry table
          assert(len(lgeom_near) >=3)
-         curMain.execute('UPDATE Geometry SET NNId = ?, NNId1 = ?, NNId2 = ? where Id=?',\
-                     (lgeom_near[0].id,lgeom_near[1].id,lgeom_near[2].id,geom.id))
+         curMain.execute('UPDATE Geometry SET NNId = ?, NNId1 = ?, NNId2 = ?, Nnbr=? where Id=?',\
+                     (lgeom_near[0].id,lgeom_near[1].id,lgeom_near[2].id,txt,geom.id))
 
          # add all 30 to NbrTable
          curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)",\
@@ -204,9 +205,7 @@ if __name__ == "__main__":
 
    # now add some data into tables
    # first add a bunch of geometry data
-   lrho1 = [(0.5 + 0.5*i) for i in range(10)]
-   lrho2 = [i*0.1 for i in range(1,51)]
-   lrho  = [i for i in lrho2 if i not in lrho1]
+   lrho = [(0.5 + 0.5*i) for i in range(10)]
    lphi = [(0.0 + 1.0*i)*pi/180.0 for i in range(181) ]
 
    llgeom = gengrid.GenerateGrid(lrho,lphi)
