@@ -957,7 +957,7 @@ def GetExpMrciNactJobs(Db,CalcTypeId,MaxGeom=50,ConstDb="",Verbose=False):
       row = cur.fetchone()
       while row:
          GeomId = row["GeomId"]
-	 StartId = row["Id"]
+       StartId = row["Id"]
 
 	 # the geomid must not be in the exclude list
          if GeomId not in ExcludeGeomIds and GeomId in ConstGeomIds:
