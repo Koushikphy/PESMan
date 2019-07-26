@@ -1381,10 +1381,10 @@ def ExportNearNbrJobs(Args):
          misc.CheckDirAccess(Dir,bRead=True,bAssert=True)
          # wave-function file -- it may be in gzip form
          if misc.CheckFileAccess(Dir+"/"+row['WfnFile'],bRead=True,bAssert=False):
-            file is there in uncompressed form
+            # file is there in uncompressed form
             pass
          elif misc.CheckFileAccess(Dir+"/"+row['WfnFile']+".gz",bRead=True,bAssert=False):
-            file is in compressed form
+            # file is in compressed form
             pass
          else:
             # file is not there

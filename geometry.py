@@ -161,3 +161,4 @@ class Geometry():
 	   return False
 
 
+geomObj = 10
