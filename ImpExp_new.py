@@ -1,4 +1,7 @@
+from __future__ import print_function
 import re
+import os
+import sys
 import shutil
 import tarfile
 import sqlite3 
@@ -51,137 +54,145 @@ def ExportNearNbrJobs(Args): #! Passing argument through object attributes is re
         ExpGeomList = GetExpMrciNactJobs(dB,calcTypeId, totGeom=Args.NumJobs,ConstDb=Args.ConstDb)
     else:
         ExpGeomList = GetExpGeomNearNbr(dB,calcTypeId, Args.GeomIdList, Args.StartIdList,totGeom=Args.NumJobs,
-                                        NbrDepth=Args.Depth,NbrDb=Args.DbNbr,ConstDb=Args.ConstDb,bIncludePath=Args.IncludePath)
+                                        maxDepth=Args.Depth,NbrDb=Args.DbNbr,ConstDb=Args.ConstDb,bIncludePath=Args.IncludePath)
 
 
-    with sqlite3.connect(dB) as con:
+    con = sqlite3.connect(dB)
+    try:
+        with con:
+            con.row_factory=sqlite3.Row
+            cur = con.cursor()
+            # first find info about this calculation type
+            cur.execute('SELECT * from CalcInfo WHERE Id=?',(calcTypeId,))
+            InfoRow = cur.fetchone()
+            assert InfoRow, "No Info found for CalcType={} found in data base".format(calcTypeId)
+            cur.execute("INSERT INTO Exports (Type,CalcType) VALUES (?,?)", (0,calcTypeId))
+            ExportId = cur.lastrowid
 
-        con.row_factory=sqlite3.Row
-        # first find info about this calculation type
-        cur.execute('SELECT * from CalcInfo WHERE Id=?',(calcTypeId,))
-        InfoRow = cur.fetchone()
+            ExpDir = "{}/Export{}-{}{}".format(Args.ExportDir, ExportId, InfoRow["type"], calcTypeId)
+            os.makedirs(ExpDir)
 
-        cur.execute("INSERT INTO Exports (Type,CalcType) VALUES (?,?)", (0,calcTypeId))
-        ExportId = cur.lastrowid
-
-        ExpDir = "{}/Export{}-{}{}".format(Args.ExportDir, ExportId, InfoRow["type"], calcTypeId)
-        os.makedirs(ExpDir)
-
-
-        expDirs = []
-        for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1): #!!!! this open db again?
-            bName = ExportCalc(cur, dB, GeomId, calcTypeId,Args.PESDir,ExpDir, InfoRow, ComTemplate=Args.ComTemplate,StartId=StartCalcId, BaseSuffix=str(ind))
-            expDirs.append(bName)
-
-
-        # if this is successful, then we need to update the Exports table
-        cur.execute("UPDATE Exports SET NumCalc=?, ExpDir=?, ExpDT=datetime('now','localtime') WHERE Id=?", (len(expDirs),ExpDir,ExportId))
-
-        # we will also need to enter exported geometries in ExpCalc table
-        # assert(len(expDirs) == len(ExpGeomListSuffix))
-        lExpCalc = [[ExportId, ExpGeomList[i][0], expDirs[i]] for i in range(len(expDirs))]
-
-        cur.executemany("INSERT INTO ExpCalc (ExpId,GeomId,CalcDir) VALUES (?,?,?)",lExpCalc)
+            expDirs = []
+            for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1): #!!!! this open db again?
+                bName = ExportCalc(cur, dB, GeomId, calcTypeId,Args.PESDir,ExpDir, InfoRow, ComTemplate=Args.ComTemplate,StartId=StartCalcId, BaseSuffix=str(ind))
+                expDirs.append(bName)
 
 
-        fExportDat = ExpDir + "/export.dat"
-        with open(fExportDat,'w') as f:
-            f.write("# Auto generated file. Please do not modify\n"+ ' '.join([ExportId]+expDirs))
+            # if this is successful, then we need to update the Exports table
+            cur.execute("UPDATE Exports SET NumCalc=?, ExpDir=?, ExpDT=datetime('now','localtime') WHERE Id=?", (len(expDirs),ExpDir,ExportId))
 
-        # change mode of this file to read-only to prevent accidental writes
-        os.chmod(fExportDat,0444)
-
-        fPythonFile =   "{}/RunJob{}.py".format(ExpDir, ExportId)
-        shutil.copy("RunJob.py", fPythonFile)
+            # we will also need to enter exported geometries in ExpCalc table
+            # assert(len(expDirs) == len(ExpGeomListSuffix))
+            lExpCalc = [[ExportId, ExpGeomList[i][0], expDirs[i]] for i in range(len(expDirs))]
+            cur.executemany("INSERT INTO ExpCalc (ExpId,GeomId,CalcDir) VALUES (?,?,?)",lExpCalc)
 
 
+            fExportDat = ExpDir + "/export.dat"
+            with open(fExportDat,'w') as f:
+                f.write("# Auto generated file. Please do not modify\n"+ ' '.join(map(str,[ExportId]+expDirs)))
 
-def GetExpGeomNearNbr(Db,CalcTypeId,GidList=[],SidList=[],totGeom=1,NbrDepth=0,NbrDb="",ConstDb="",bIncludePath=False):
+            # change mode of this file to read-only to prevent accidental writes
+            os.chmod(fExportDat,0444)
 
-    with sqlite3.connect(Db) as con:
-        cur = con.cursor()
-        # notice getting GeomId,Id to easily feed into dictionary
-        cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(CalcTypeId,))
-        calcRow = cur.fetchall()
-
-        # a set of geomIds that is already done
-        CalcGeomIds = set([geomId for geomId,_ in calcRow ])
-        DictCalcId  = dict(calcRow)
-
-        # set of geomIds that will be excluded from exporting
-        ExcludeGeomIds = CalcGeomIds.copy()
-
-        if not bIncludePath:
-            cur.execute("SELECT Id FROM Geometry WHERE tags LIKE '%path%'")
-            ExcludeGeomIds.update(cur.fetchall())
-
-
-        cur.execute("SELECT ID FROM Exports WHERE status=0 CalcType=?",(CalcTypeId,))
-        for expId in cur:
-            cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",(expId,))
-            ExcludeGeomIds.update(cur.fetchall())
-
-    #--------------------------------------------------------------------------------
-        # lPrblmGeomIds = []
-        # ExcludeGeomIds.update(lPrblmGeomIds)
-    #--------------------------------------------------------------------------------
-
-        DictStartId = {}
-        GidListNew = []
-
-        for g,s in itertools.izip_longest(GidList,SidList):
-            if s==None: s=-1
-            DictStartId[g] = s
-            if g in ExcludeGeomIds:
-                GidListNew.append(0)  
-            else:
-                GidListNew.append(g)
-
-
-        sql = "SELECT Id,Nbr FROM Geometry"
-        if GidListNew and ConstDb :
-            sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ") and (" + ConstDb + ")"
-        elif GidListNew and not ConstDb:
-            sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ")"
-        elif not GidListNew and ConstDb:
-            sql += "where "  + ConstDb
-        cur.execute(sql)
-
-        # this is only useful only if one gives jobs number less than the gid list length
-        # if GidListNew: 
-        #     # so when gid list given cur is simple list o/w cur is sqlite iterator. 
-        #     # is this bad?,  the cur sqlite instance is not needed after this point
-        #     cur = cur.fetchall() 
-        #     totGeom = len(cur)
-        expGClist = []
-
-        # ExcludeGeomIds and CalcGeomIds are sets for faster searching
-        for GeomId, nbrList in cur:
-            if len(expGClist)==totGeom: break     # got all the geometries needed
-            if GeomId in ExcludeGeomIds: continue # geometry already exist, skip
-
-            for depth, nId in enumerate(nbrList.split(), start=1):
-                NbrId = int(nId)
-                if maxDepth and (depth>maxDepth): break 
-
-                if GidListNew and DictStartId[GeomId]>=0: # only if start id is negetive then we have to search neighbour list
-                    NbrId = DictStartId[GeomId]
-                    if not NbrId: # zero startid
-                        expGClist.append([GeomId, 0])
-                        break
-
-                if NbrId in CalcGeomIds: #nbrid done?
-                    expGClist.append([GeomId, DictCalcId[NbrId]])
-                    break # got one match now don't search for other neighbours
-
-    # preventing null exports
-    assert len(expGClist), "Can't export any geometries"
-    return expGClist
+            fPythonFile =   "{}/RunJob{}.py".format(ExpDir, ExportId)
+            shutil.copy("RunJob.py", fPythonFile)
+    except Exception as e:
+        print("Can't export %s"%e)
+    finally :
+        con.close()
 
 
 
+def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],totGeom=1,maxDepth=0,NbrDb="",ConstDb="",bIncludePath=False):
 
-def GetExpMrciNactJobs(Db,CalcTypeId,totGeom=50,constDb=""):
+    con = sqlite3.connect(dB)
+    try:
+        with con:
+            cur = con.cursor()
+            # notice getting GeomId,Id to easily feed into dictionary
+            cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(CalcTypeId,))
+            calcRow = cur.fetchall()
+
+            # a set of geomIds that is already done
+            CalcGeomIds = set([geomId for geomId,_ in calcRow ])
+            DictCalcId  = dict(calcRow)
+
+            # set of geomIds that will be excluded from exporting
+            ExcludeGeomIds = CalcGeomIds.copy()
+
+            if not bIncludePath:
+                cur.execute("SELECT Id FROM Geometry WHERE tags LIKE '%path%'")
+                ExcludeGeomIds.update(cur.fetchall())
+
+
+            cur.execute("SELECT ID FROM Exports WHERE status=0 and CalcType=?",(CalcTypeId,))
+            for expId in cur:
+                cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple
+                ExcludeGeomIds.update(cur.fetchall())
+
+        #--------------------------------------------------------------------------------
+            # lPrblmGeomIds = []
+            # ExcludeGeomIds.update(lPrblmGeomIds)
+        #--------------------------------------------------------------------------------
+
+            DictStartId = {}
+            GidListNew = []
+
+            for g,s in itertools.izip_longest(GidList,SidList):
+                if s==None: s=-1
+                DictStartId[g] = s
+                if g in ExcludeGeomIds:
+                    GidListNew.append(0)  
+                else:
+                    GidListNew.append(g)
+
+
+            sql = "SELECT Id,Nnbr FROM Geometry "
+            if GidListNew and ConstDb :
+                sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ") and (" + ConstDb + ")"
+            elif GidListNew and not ConstDb:
+                sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ")"
+            elif not GidListNew and ConstDb:
+                sql += "where "  + ConstDb
+            cur.execute(sql)
+
+            # this is only useful only if one gives jobs number less than the gid list length
+            # if GidListNew: 
+            #     # so when gid list given cur is simple list o/w cur is sqlite iterator. 
+            #     # is this bad?,  the cur sqlite instance is not needed after this point
+            #     cur = cur.fetchall() 
+            #     totGeom = len(cur)
+            expGClist = []
+            # ExcludeGeomIds and CalcGeomIds are sets for faster searching
+            for GeomId, nbrList in cur:
+                if len(expGClist)==totGeom: break     # got all the geometries needed
+                if GeomId in ExcludeGeomIds: continue # geometry already exist, skip
+
+                for depth, nId in enumerate(nbrList.split(), start=1):
+                    NbrId = int(nId)
+                    if maxDepth and (depth>maxDepth): break 
+                    if GidListNew and DictStartId[GeomId]>=0: # only if start id is negetive then we have to search neighbour list
+                        NbrId = DictStartId[GeomId]
+                        if not NbrId: # zero startid
+                            expGClist.append([GeomId, 0])
+                            break
+
+                    if NbrId in CalcGeomIds: #nbrid done?
+                        expGClist.append([GeomId, DictCalcId[NbrId]])
+                        break # got one match now don't search for other neighbours
+
+        # preventing null exports
+        assert len(expGClist), "No exportable geometries found"
+        return expGClist
+    except Exception as e:
+        print("Can't export %s"%e)
+    finally :
+        con.close()
+
+
+
+
+def GetExpMrciNactJobs(Db,CalcTypeId,totGeom=50,ConstDb=""):
 
     with sqlite3.connect(Db) as con:
         cur = con.cursor()
@@ -190,24 +201,24 @@ def GetExpMrciNactJobs(Db,CalcTypeId,totGeom=50,constDb=""):
         CalcGeomIds = set(cur.fetchall())
         ExcludeGeomIds = CalcGeomIds.copy()  # jobs that is already done.
 
-        cur.execute("SELECT ID FROM Exports WHERE status=0 CalcType=?",(CalcTypeId,))
+        cur.execute("SELECT ID FROM Exports WHERE status=0 and CalcType=?",(CalcTypeId,))
         for expId in cur:  # jobs that is exported but not done
-            cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",(expId,))
+            cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId)
             ExcludeGeomIds.update(cur.fetchall())
 
     #--------------------------------------------------------------------------------
         # lPrblmGeomIds = []
         # ExcludeGeomIds.update(lPrblmGeomIds)
     #--------------------------------------------------------------------------------
-        if constDb:
-            cur.execute("SELECT Id FROM Geometry where " + constDb )
+        if ConstDb:
+            cur.execute("SELECT Id FROM Geometry where " + ConstDb )
             ConstGeomIds = set(cur.fetchall())
 
         expGClist = []
 
         cur.execute("SELECT Id,GeomId FROM Calc WHERE CalcId = 1")
-        for StartId, GeonId in cur:
-            if constDb and (GeomId not in ConstGeomIds): # this is a small list so checking it before excludelist
+        for StartId, GeomId in cur:
+            if ConstDb and (GeomId not in ConstGeomIds): # this is a small list so checking it before excludelist
                 continue
             if (GeomId not in ExcludeGeomIds):
                 expGClist.append([GeomId, StartId])
@@ -222,11 +233,6 @@ def GetExpMrciNactJobs(Db,CalcTypeId,totGeom=50,constDb=""):
 
 def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate="",StartId=0,BaseSuffix=""):
 
-    # with sqlite3.connect(Db) as con: #! openning, already opened database again here BEWARE
-
-    #     # use row factory which is far better and has dictionary-like access to data
-    #     con.row_factory = sqlite3.Row
-    #     cur = con.cursor()
 
         # GeomId and CalcTypeId check
         cur.execute('SELECT * from Geometry WHERE Id=?',(GeomId,))
@@ -248,13 +254,15 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
             # pickup details from here -- needed for completing template file
             StartGId = StartCalcRow["GeomId"]
             StartDir = StartCalcRow["Dir"]
-            a,b = StartDir.split("/")
+            c,a,b = StartDir.split("/")
             StartBaseName = "{}-{}".format(b,a)
             StartRecord = StartCalcRow["OrbRec"]
+        else:
+            StartGId = 0
 
 
         # decide basename needed for generated files
-        BaseName = "{}{}-geom".format(InfoRow["Type"], CalcTypeId, GeomId) + BaseSuffix
+        BaseName = "{}{}-geom{}-".format(InfoRow["Type"], CalcTypeId, GeomId) + BaseSuffix
         ExportDir = ExpDir + "/" + BaseName
         os.makedirs(ExportDir)
 
@@ -266,7 +274,7 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
         fCalc = ExportDir + "/" + BaseName + ".calc_"  # <-- extra underscore
         fXYZ  = ExportDir + "/" + BaseName + ".xyz"
         # get these file writes inside of there respective functions
-        GenCalcFile(CalcTypeId,GeomId,CalcName,Record,BaseName,Desc="",Aux="Start GId - " + str(StartGId), fileName=fCalc)
+        GenCalcFile(CalcTypeId,GeomId,InfoRow["Name"],Record,BaseName,Desc="",Aux="Start GId - " + str(StartGId), fileName=fCalc)
         geomObj.createXYZfile(GeomRow, filename = fXYZ)  #< -- everything is done from outside, the geometry file
 
 
@@ -274,7 +282,7 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
         # if wfn file needs to be copied from elsewhere, do that now
         if StartId:
             tar = tarfile.open(StartDir+".tar.bz2")
-            tar.extract("%s.wfu"%StartBaseName, path=ExportDir)
+            tar.extract("./%s.wfu"%StartBaseName, path=ExportDir)
 
 
         txt = InpTempl.replace("$F$",BaseName).replace("$R$",Record)
@@ -286,63 +294,69 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
         fInp = ExportDir + "/" + BaseName + ".com" 
         with open(fInp,'w') as f:
             f.write(txt)
+        
+        return BaseName
 
 
 
 
 def ImportNearNbrJobs(Db, expFile, DataDir):
-    ExportDir = os.path.abspath(os.path.dirname(ExpFile))
+    ExportDir = os.path.abspath(os.path.dirname(expFile))
     # this function is called with the export.dat file and export id is taken from the exofile so we dont have to check if exportid is given or not. It's obviously not given
 
     with open(expFile,'r') as f:
-        ExportId, sExpDat = f.read().split(" ",1)
+        dat = f.read().split("\n",1)[1].split(" ") #skip first line
+        ExportId, CalcDirs = dat[0], dat[1:]
 
-    ExportId = int(ExportId)
-    CalcDirs = sExpDat.split()
     CalcDirsDone = set([d for d in CalcDirs if os.path.isfile("{0}/{1}/{1}.calc".format(ExportDir, d)) ])
+    con = sqlite3.connect(Db)
+    try:
+        with con:
+            cur = con.cursor()
+            cur.execute('SELECT Status FROM Exports WHERE Id=?',(ExportId,))
+            exp_row = cur.fetchone()
+            assert exp_row,        "Export Id = {} not found in data base".format(ExportId)
+            assert exp_row[0] ==0, "Export Id = {} is already closed.".format(ExportId)
 
-    with sqlite3.connect(Db) as con:
-        cur = con.cursor()
-        cur.execute('SELECT Status FROM Exports WHERE Id=?',(ExportId,))
-        exp_row = cur.fetchone()
-        assert exp_row,        "Export Id = {} not found in data base".format(ExportId)
-        assert exp_row[0] ==0, "Export Id = {} is already closed.".format(ExportId)
+            # now obtain list of jobs which can be imported.
+            cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(ExportId,))
+            toImportList = cur.fetchall()
+            importCount = 0
+            for geomId, calcDir in toImportList:
+                if calcDir in CalcDirsDone:
 
-        # now obtain list of jobs which can be imported.
-        cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(ExportId,))
+                    dirFull = ExportDir + "/" + calcDir
+                    cFiles = glob(dirFull+"/*.calc")
+                    assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
 
-        importCount = 0
-        for geomId, calcDir in cur:
-            if calcDir in CalcDirsDone:
+                    print("Importing ...{}...".format(dirFull), end='')
+                    ImportCalc(cur,dirFull,cFiles[0],DataDir)
+                    print("done")
 
-                dirFull = ExportDir + "/" + calcDir
-                cFiles = glob(dirFull+"/*.calc")
-                assert len(cFiles)==1, "{} has {} .calc file(s)".format(dirFull, len(cFiles))
-                
-                print("Importing ...",CalcDir,"...",)
-                ImportCalc(con,dirFull,cFiles[0],DataDir,ignoreList)
-                print("done")
+                    cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(ExportId,geomId))
+                    importCount+=1
 
-                cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(ExportId,geomId))
-                importCount+=1
-
-        sImpGeomIds =''# update what geometries are imported with this exportid, to be handled later
-        cur.execute("UPDATE Exports SET ImpDT=datetime('now','localtime'), ImpGeomIds=? WHERE Id=?",(sImpGeomIds,ExportId))
-
-
-        # status in export table will be 1 only if all geometries are imported, i.e. all jobs ran successfully
-        # i.e all calcdirs has `.calc` file , so   # a tricky way to curb some calculation, BEWARE
-        if len(CalcDirs) == len(CalcDirsDone):
-            cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(ExportId,))
-            print('Export Id={} is now closed.'.format(ExportId))
-        else :
-            print('Export Id={} is not closed.'.format(ExportId))
-
-    print("{} Jobs have been successfully imported.".format(GeomIdsToImport))
+            sImpGeomIds =''# update what geometries are imported with this exportid, to be handled later
+            cur.execute("UPDATE Exports SET ImpDT=datetime('now','localtime'), ImpGeomIds=? WHERE Id=?",(sImpGeomIds,ExportId))
 
 
+            cur.execute("SELECT count(*) FROM ExpCalc WHERE ExpId=?",(ExportId,))
 
-def ImportCalc(con,CalcDir,CalcFile,DataDir,ignoreList=[]):
+            if cur.fetchone()[0]==0:
+                cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(ExportId,))
+                print('Export Id={} is now closed.'.format(ExportId))
+            else :
+                print('Export Id={} is not closed.'.format(ExportId))
+
+            print("{} Jobs have been successfully imported.".format(importCount))
+    except Exception as e:
+        print( "Can't complete Import. %s"%e)
+    finally:
+        con.close()
+
+
+
+def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList=[]):
 
     # parse calcfile and get basename
     # this is to identify the files to be imported.
@@ -350,25 +364,20 @@ def ImportCalc(con,CalcDir,CalcFile,DataDir,ignoreList=[]):
         txt = f.read().split("\n")[1:] #first line comment
     dCalc = dict([map(str.strip, i.split(":")) for i in txt])
 
-    try:
-        with con: # this context manager automatecally commits and roll back for us
-            a,b,_ = dCalc['Baseame'].split('-') # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
-            DestCalcDir = DataDir+"/{}/{}".format(b,a)  #  simple trick check throughly
-            fRes = "{}/{}-{}".format(CalcDir, a,b)      #! a bold guess
-            sResults = parseResult(fRes)
+    a,b,_ = dCalc['Basename'].split('-') # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
+    DestCalcDir = DataDir+"/{}/{}".format(b,a)  #  simple trick check throughly
+    fRes = "{}/{}.res".format(CalcDir, dCalc['Basename'])
+    sResults = parseResult(fRes)
+    if not os.path.exists(DestCalcDir):  os.makedirs(DestCalcDir)
 
-            if not os.path.exists(DestCalcDir):  os.makedirs(DestCalcDir)
+    tcalc = (dCalc["GeomId"],dCalc["CalcId"],dCalc['Record'], DestCalcDir, dCalc["Aux"],sResults)
+    cur.execute("INSERT INTO Calc (GeomId,CalcId,OrbRec,Dir,AuxFiles,Results) VALUES (?, ?, ?, ?, ?, ?)", tcalc) 
 
-            tcalc = (dCalc["GEOMID"],dCalc["CALCID"], DestCalcDir, dCalc["AUX"],sResults)
-            con.execute("INSERT INTO Calc (GeomId,CalcId,Dir,AuxFiles,Results) VALUES (?, ?, ?, ?, ?)", tcalc) # not standard but whatever
+    for iFile in glob("{}/*.*".format(CalcDir)):
+        if os.path.splitext(iFile)[1] in [".wfu"]:  # copy all file except for ignore list
+            continue
+        oFile = DestCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile))   # a file `multinact2-geom111-1.com` will be `multinact2-geom111.com` in Geomdata
+        shutil.copy(iFile, oFile)
+    shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
+    shutil.rmtree(DestCalcDir)
 
-            for iFile in glob("{}/*.*".format(CalcDir)):
-                if os.path.splitext(iFile)[1] in ignoreList:  # copy all file except for ignore list
-                    continue
-                oFile = DestCalcDir + "/" + re.sub('-\d+','',iFile)   # a file `multinact2-geom111-1.com` will be `multinact2-geom111.com` in Geomdata
-                iFile = CalcDir+"/"+iFile                               #  simple trick check throughly
-                shutil.copy(oFile, iFile)
-
-        shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
-    except Exception as e:
-        print("Something went wrong %s"%e)

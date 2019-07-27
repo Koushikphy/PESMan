@@ -10,7 +10,7 @@ import os
 import sys
 import ConfigParser
 
-import ImpExp
+import ImpExp_new as ImpExp
 import misc
 
 # create the top-level parser
@@ -244,15 +244,16 @@ if __name__ == '__main__':
 
     # parse the config file through ConfigParser class
     ConfParser = ConfigParser.SafeConfigParser()
+    print Args.ConfigFile
     ConfParser.read(Args.ConfigFile)
 
     # if any option has been passed through command line
-    if not Args.DbMain:
-       Args.DbMain = ConfParser.get('DB','main') # option 'main' can be case-insensitive
-    if not Args.DbNbr:
-       DbNbrConfig = ConfParser.get('DB','nbr')
-    if not Args.PESDir:
-       Args.PESDir = ConfParser.get('PESDATA','pesdir')
+   #  if not Args.DbMain:
+    Args.DbMain = ConfParser.get('DB','main') # option 'main' can be case-insensitive
+   #  if not Args.DbNbr:
+    DbNbrConfig = Args.DbNbr = ConfParser.get('DB','nbr')
+   #  if not Args.PESDir:
+    Args.PESDir = ConfParser.get('PESDATA','pesdir')
     
     # set defaults for export
     if Args.subcommand == 'export':
@@ -344,29 +345,29 @@ if __name__ == '__main__':
 
           Args.ExportDir = os.path.abspath(os.path.dirname(Args.ExpFile))
           print "Importing from export.dat file in directory",Args.ExportDir
-          ImpExp.ImportNearNbrJobs(Args)
+          ImpExp.ImportNearNbrJobs(Args.DbMain, Args.ExpFile, Args.PESDir)
 
-       # import from a '.calc' file
-       if Args.CalcFile:
+      #  # import from a '.calc' file
+      #  if Args.CalcFile:
 
-          CalcDir = os.path.abspath(os.path.dirname(Args.CalcFile))
-          print "Importing from calc file ", Args.CalcFile
-          ImpExp.ImportCalc(Args.DbMain,CalcDir,Args.CalcFile,Args.PESDir,
-                            Verbose=Args.Verbose,Check=Args.ImportCheck)
+      #     CalcDir = os.path.abspath(os.path.dirname(Args.CalcFile))
+      #     print "Importing from calc file ", Args.CalcFile
+      #     ImpExp.ImportCalc(Args.DbMain,CalcDir,Args.CalcFile,Args.PESDir,
+      #                       Verbose=Args.Verbose,Check=Args.ImportCheck)
 
-       # import from all '.calc' files in directory
-       if Args.CalcDir:
+      #  # import from all '.calc' files in directory
+      #  if Args.CalcDir:
 
-          print "Importing from all .calc files in directory ", Args.CalcDir
-          misc.CheckDirAccess(Args.CalcDir,bRead=True,bAssert=True)
-          CalcFilesDir = [ f for f in os.listdir(Args.CalcDir) if f.endswith(".calc") ]
-          if len(CalcFilesDir) > 0:
-             print len(CalcFilesDir), "calc files will be tried for import."
-          else:
-             print "No .calc files present in this directory."
-          for CalcFile in CalcFilesDir:
-              ImpExp.ImportCalc(Args.DbMain,Args.CalcDir,Args.CalcDir+"/"+CalcFile,Args.PESDir,
-                                Verbose=Args.Verbose,Check=Args.ImportCheck)
+      #     print "Importing from all .calc files in directory ", Args.CalcDir
+      #     misc.CheckDirAccess(Args.CalcDir,bRead=True,bAssert=True)
+      #     CalcFilesDir = [ f for f in os.listdir(Args.CalcDir) if f.endswith(".calc") ]
+      #     if len(CalcFilesDir) > 0:
+      #        print len(CalcFilesDir), "calc files will be tried for import."
+      #     else:
+      #        print "No .calc files present in this directory."
+      #     for CalcFile in CalcFilesDir:
+      #         ImpExp.ImportCalc(Args.DbMain,Args.CalcDir,Args.CalcDir+"/"+CalcFile,Args.PESDir,
+      #                           Verbose=Args.Verbose,Check=Args.ImportCheck)
 
        print "\nPESMan: Successfully Imported!"
 

@@ -16,10 +16,8 @@ resArr = np.column_stack([ GeomRow[sortedIndex][:,1:], CalcRow[:,1:]])
 # sort out jumbling of rho, phi values, also remove any duplicates in process
 resArr = np.unique(resArr, axis=0)
 
-ResDir = '.'
-
-# ResDir = "Result_files_Multi"
-gRes = open(ResDir+'/Enr1.dat', "wb")
+ResDir = "Result_files_Multi"
+gRes = open(ResDir+'/Enr.dat', "wb")
 rhoList = np.unique(resArr[:,0])
 
 for rho in rhoList:

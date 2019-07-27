@@ -13,7 +13,7 @@ with sqlite3.connect('no2db.db') as con:
 # This is the list of indexes in geomrow corresponding to the id in calcrow
 sortedIndex = np.searchsorted(GeomRow[:,0], CalcRow[:,0], sorter=GeomRow[:,0].argsort())
 resArr = np.column_stack([ GeomRow[sortedIndex][:,1:], CalcRow[:,1:]]) # array of [[rho, phi, results..]...]
-# sort out jumbling of rho, phi values, also remove any duplicates in process
+# sort out jumbling of rho, phi values, also remove any duplicates in process, may not work always
 resArr = np.unique(resArr, axis=0)
 
 hcross    = 0.06350781278
@@ -23,10 +23,11 @@ ang       = 0.529177249
 
 aq1   = np.loadtxt('./coeff_Q1.dat')
 aq2   = np.loadtxt('./coeff_Q3.dat')
-aq    = np.column_stack([aq1,aq2]).reshape(3,3,2)
-mass  = np.array([14.006700, 15.999400, 15.999400])
-msInv  = np.sqrt(1/mass)
 omega = np.array([759.61,1687.70 ])
+mass  = np.array([14.006700, 15.999400, 15.999400])
+
+aq    = np.column_stack([aq1,aq2]).reshape(3,3,2)
+msInv  = np.sqrt(1/mass)
 omgInv = np.sqrt(hcross/(omega*cminvtinv))
 
 # innermost axis of aq is the normal modes

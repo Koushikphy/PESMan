@@ -2,12 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import os.path
-import shutil
 import subprocess
-import time
-
-""" A context manager to run molpro jobs in some directory """
+from datetime import datetime
 from contextlib import contextmanager
 
 
@@ -27,12 +23,12 @@ def writeLog(fLog, msg, cont=False): # writes to the log file
         msg = '{:.<90}'.format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg)
     else:
         msg+='\n'
-    flog.write(msg)
-    flog.flush()
+    fLog.write(msg)
+    fLog.flush()
 
 
-def RunExportedCalcs(MolproScrDir):
-   """ Run or continue a series of exported jobs."""
+def RunExportedCalcs(ScrDirCalc):
+    """ Run or continue a series of exported jobs."""
 
     # first open export.dat file and collect information about exported jobs
     with open("export.dat",'r') as f:
@@ -49,9 +45,9 @@ def RunExportedCalcs(MolproScrDir):
 
     # open log file in append mode
     fLog = open("run.log","a")
-
-    txt = "Skipping already compelted job Dir \n" + '\n'.join(DirsDone)
-    writeLog(fLog, txt, True)
+    if len(DirsDone):
+        txt = "Skipping already compelted job Dir \n" + '\n'.join(DirsDone)
+        writeLog(fLog, txt, True)
 
     # now execute each job
     # is it really needed to make a folder for everny new job then delete it.
@@ -59,33 +55,34 @@ def RunExportedCalcs(MolproScrDir):
     for RunDir in DirsToDo:
         writeLog(fLog, "Running Job for "+RunDir)
 
-        ScrDirCalc = os.path.expanduser(MolproScrDir + "/" + "scr-" + RunDir)
-        os.makedirs(ScrDirCalc,0775)
+        # ScrDirCalc = os.path.expanduser(MolproScrDir + "/" + "scr-" + RunDir)
+        # os.makedirs(ScrDirCalc,0775)
         fComBaseFile = RunDir + ".com"
 
         with cd(RunDir):
-            exitcode = subprocess.call(["molpro", "-d", ScrDirCalc, "-W .", "-n", "4", fComBaseFile])
+            exitcode = subprocess.call(["molpro", "-d", ScrDirCalc, "-W .", "-n", "2", fComBaseFile])
 
         if exitcode == 0:
             writeLog(fLog, "Job Successful.", True)
             # rename .calc_ file so that it can be imported
-            os.rename(RunDir + "/" + RunDir + ".calc_", RunDir + "/" + RunDir + ".calc")
+            os.rename( "{0}/{0}.calc_".format(RunDir), "{0}/{0}.calc".format(RunDir))
 
         else:
             writeLog(fLog, "Job Failed.", True)
 
         # remove scratch directory
         # subprocess.call(["rm","-rf",ScrDirCalc])
-        shutil.rmtree(ScrDirCalc)
+        # shutil.rmtree(ScrDirCalc)
 
     writeLog(fLog, "All Jobs Completed\n")
-    writeLog(fLog, "*"*120, True)
+    writeLog(fLog, "."*70, True)
     fLog.close()
     
 if __name__ == '__main__':
 
+    # give full path please
     MolproScrDir = "/tmp/bijit/Q1-Q3-NO2"
-
     RunExportedCalcs(MolproScrDir)
+
 
 
