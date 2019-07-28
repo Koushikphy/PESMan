@@ -43,7 +43,7 @@ do
 
   #./PESMan.py export -j 1 --calc-id 1 --depth 0 2>> error_export.log
   ./PESMan.py export -j 1 --calc-id 1 --depth 0 --incl-path 2>> error_export.log
- # python PESMan.py export -j 1 --calc-id 1 --depth 3 --constraint "tags like '%linear%'" --incl-path 2>> error_export.log
+  # python PESMan.py export -j 1 --calc-id 1 --depth 3 --constraint "tags like '%linear%'" --incl-path 2>> error_export.log
 
   extcd=$?
  
