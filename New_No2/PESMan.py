@@ -1,7 +1,7 @@
 import argparse
 import textwrap
 import ConfigParser
-from ImpExp_new import ImportNearNbrJobs, ExportNearNbrJobs
+from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 
 
 def checkPositive(val):

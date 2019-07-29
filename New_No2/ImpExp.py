@@ -277,8 +277,11 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
 
         # if wfn file needs to be copied from elsewhere, do that now
         if StartId:
-            tar = tarfile.open(StartDir+".tar.bz2")
-            tar.extract("./%s.wfu"%StartBaseName, path=ExportDir)
+            if os.path.isdir(StartDir):
+                shutil.copy(StartDir+ "/%s.wfu"%StartBaseName, ExportDir )
+            else:
+                tar = tarfile.open(StartDir+".tar.bz2")
+                tar.extract("./%s.wfu"%StartBaseName, path=ExportDir)
 
 
         txt = InpTempl.replace("$F$",BaseName).replace("$R$",Record)

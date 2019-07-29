@@ -26,7 +26,7 @@ NN=1830
 
 #Give the latest no. of export for the value of I. Consult "Exports" table of the main database for the correct number.
 
-I=17
+I=`sqlite3 no2db.db "SELECT id FROM exports ORDER BY id DESC LIMIT 1" `
 
 ndir1=`ls $PESDir | wc -l`
 
