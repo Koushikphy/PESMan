@@ -5,7 +5,7 @@ def addNewCalcType(db, conf):
         cur = con.cursor()
         for tconf in conf:
             stemp = open(tconf['template']).read()
-            cur.execute("INSERT INTO CalcInfo (Type,InpTempl,OrbRec,Desc) VALUES (?, ?, ?, ?)", (tconf["type"], stemp,tconf["record"],tconf["desc"]))
+            cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (tconf["type"], stemp,tconf["desc"]))
         for row in cur.execute("SELECT * FROM CalcInfo"):  print row
         print "Record inserted and closed"
 
@@ -14,13 +14,11 @@ db = "no2db.db"
 
 conf = [{
     "type": "multi",
-    "template": "./multi-no2-pes.template",
-    "record": "2901.2",
+    "template": "multi-no2-pes.template",
     "desc": ""},
     {
     "type": "multinact",
-    "template": "./ananact.template",
-    "record": "2350.2",
+    "template": "ananact.template",
     "desc": ""},
     ]
 addNewCalcType(db,conf)

@@ -19,14 +19,12 @@ CREATE TABLE CalcInfo(
 Id INTEGER PRIMARY KEY,
 Type TEXT NOT NULL,
 InpTempl TEXT NOT NULL,
-OrbRec TEXT NOT NULL,
 Desc TEXT);
 CREATE TABLE Calc(
 Id INTEGER PRIMARY KEY,
 GeomId INTEGER NOT NULL,
 CalcId INTEGER NOT NULL,
 Dir TEXT NOT NULL,
-OrbRec TEXT NOT NULL,
 AuxFiles TEXT,
 Results TEXT);
 CREATE TABLE ExpCalc(
@@ -58,7 +56,8 @@ def distance(xy1, xy2):
     return np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
 def getKabsch(geom, lim=10):
-    # the geomList has to be available on global scope, so that the pool worker threads can access it
+    #accessing the full geomList from the global scope
+    # WARNING !!! Do not use this approach in windows system, windows doesn't uses fork to spawn child processes
     vGeom = geomList[np.where( 
                     (geomList[:,1] > geom[1]-2.5) &
                     (geomList[:,1] < geom[1]+2.5) &
@@ -74,7 +73,7 @@ def getKabsch(geom, lim=10):
 
 
 
-
+# WARNING!!! Do not remove this while using multiprocessing module
 if __name__ == "__main__":
     import time
     start = time.time()

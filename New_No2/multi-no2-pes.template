@@ -1,7 +1,7 @@
 ***,NO2
 ! $F$ : basename to be substituted
 ! $R$ : record name
-! $S$ : starting record name if it is available
+! 2901.2 : starting record name if it is available
 memory,100,m
 file,2,$F$.wfu
 punch,$F$.pun
@@ -15,7 +15,7 @@ geometry=$F$.xyz
 wf,23,1,1;state,2;
 wf,23,2,1;state,2;
 maxiter,40;
-start,$S$;
+start,2901.2;
 orbital,$R$;}
 
 $resvars = [E1,E2,E3,E4]

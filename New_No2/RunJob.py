@@ -27,7 +27,7 @@ def writeLog(fLog, msg, cont=False): # writes to the log file
     fLog.flush()
 
 
-def RunExportedCalcs(ScrDirCalc):
+def runExportedCalcs(ScrDirCalc):
     """ Run or continue a series of exported jobs."""
 
     # first open export.dat file and collect information about exported jobs
@@ -77,12 +77,43 @@ def RunExportedCalcs(ScrDirCalc):
     writeLog(fLog, "All Jobs Completed\n")
     writeLog(fLog, "."*70, True)
     fLog.close()
-    
+
+
+
+def dummyRun(ScrDirCalc):
+    """ Run or continue a series of exported jobs."""
+
+    with open("export.dat",'r') as f:
+        sExpDat = f.read().split("\n",1)[1]
+
+
+    CalcDirs = sExpDat.split()
+    DirsDone = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc")]
+    DirsToDo = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc_")]
+
+    for RunDir in DirsToDo:
+
+        # ScrDirCalc = os.path.expanduser(MolproScrDir + "/" + "scr-" + RunDir)
+        # os.makedirs(ScrDirCalc,0775)
+        fComBaseFile = RunDir + ".com"
+
+        with cd(RunDir):
+            with open("%s.wfu"%RunDir, "w") as f: f.write("Nothing to see here")
+            with open("%s.res"%RunDir, "w") as f: f.write("21 111 73")
+
+            os.rename( "%s.calc_"%RunDir, "%s.calc"%RunDir)
+
+
+
+
 if __name__ == '__main__':
 
     # give full path please
     MolproScrDir = "/tmp/bijit/Q1-Q3-NO2"
-    RunExportedCalcs(MolproScrDir)
+    try:
+        dummyRun(MolproScrDir)
+    except Exception as e:
+        print("Something went wrong %s"%e)
 
 
 
