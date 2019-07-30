@@ -69,7 +69,7 @@ def getKabsch(geom, lim=10):
     x, y = geom[3],geom[4]
     lkabsh = np.array([distance(geom[3:], i[3:])  for i in vGeom])
     index = lkabsh.argsort()[:lim]
-    txt = ' '.join([str(i) for i in vGeom[index,0]])
+    txt = ' '.join([str(int(i)) for i in vGeom[index,0]])
     return (txt, geom[0])
 
 

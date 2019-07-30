@@ -50,9 +50,10 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
         ExpGeomList = GetExpGeomNearNbr(dB,calcTypeId, gidList, sidList, jobs, depth, constDb, includePath)
 
 
-    con = sqlite3.connect(dB)
-    try:
-        with con:
+    # con = sqlite3.connect(dB)
+    # try:
+    #     with con:
+    with sqlite3.connect(dB) as con:
             con.row_factory=sqlite3.Row
             cur = con.cursor()
             cur.execute('SELECT * from CalcInfo WHERE Id=?',(calcTypeId,))
@@ -62,11 +63,13 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
             exportId = cur.lastrowid
 
             ExpDir = "{}/Export{}-{}{}".format(exportDir, exportId, InfoRow["type"], calcTypeId)
+            if os.path.exists(ExpDir):
+                shutil.rmtree(ExpDir)
             os.makedirs(ExpDir)
 
             expDirs = []
             for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1): #!!!! this open db again?
-                bName = ExportCalc(cur, dB, GeomId, calcTypeId,peSDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
+                bName = ExportCalc(cur, dB, GeomId, calcTypeId,pesDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
                 expDirs.append(bName)
 
 
@@ -86,18 +89,19 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
             fPythonFile =   "{}/RunJob{}.py".format(ExpDir, exportId)
             shutil.copy("RunJob.py", fPythonFile)
             os.chmod(fPythonFile,0766)
-    except Exception as e:
-        print("Can't export %s"%e)
-    finally :
-        con.close()
+    # except Exception as e:
+    #     print("Can't export %s"%e)
+    # finally :
+    #     con.close()
 
 
 
 def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb="",bIncludePath=False):
 
-    con = sqlite3.connect(dB)
-    try:
-        with con:
+    # con = sqlite3.connect(dB)
+    # try:
+    #     with con:
+    with sqlite3.connect(dB) as con:
             cur = con.cursor()
             # notice getting GeomId,Id to easily feed into dictionary
             cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(CalcTypeId,))
@@ -115,10 +119,11 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
                 ExcludeGeomIds.update(cur.fetchall())
 
 
-            cur.execute("SELECT ID FROM Exports WHERE status=0 and CalcType=?",(CalcTypeId,))
-            for expId in cur:
+            cur.execute("SELECT ID FROM Exports WHERE Status=0 and CalcType=?",(CalcTypeId,))
+            ids = cur.fetchall()
+            for expId in ids:
                 cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple
-                ExcludeGeomIds.update(cur.fetchall())
+                ExcludeGeomIds.update(cur.fetchall()[0]) #<-- returns a list of tuples, onelist for one filed i.e. GeomId
 
         #--------------------------------------------------------------------------------
             # lPrblmGeomIds = []
@@ -172,21 +177,22 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
                         break # got one match now don't search for other neighbours
 
         # preventing null exports
-        assert len(expGClist), "No exportable geometries found"
-        return expGClist
-    except Exception as e:
-        print("Can't export %s"%e)
-    finally :
-        con.close()
+    assert len(expGClist), "No exportable geometries found"
+    return expGClist
+    # except Exception as e:
+    #     print("Can't export %s"%e)
+    # finally :
+    #     con.close()
 
 
 
 
 def GetExpMrciNactJobs(Db,CalcTypeId,jobs=50,ConstDb=""):
 
-    con = sqlite3.connect(dB)
-    try:
-        with con:
+    # con = sqlite3.connect(dB)
+    # try:
+    #     with con:
+    with sqlite3.connect(dB) as con:
             cur = con.cursor()
 
             cur.execute("SELECT GeomId FROM Calc WHERE CalcId=?",(CalcTypeId,))
@@ -218,12 +224,12 @@ def GetExpMrciNactJobs(Db,CalcTypeId,jobs=50,ConstDb=""):
                         break         
 
         # preventing null exports
-        assert len(expGClist), "No exportable geometries found"
-        return expGClist
-    except Exception as e:
-        print("Can't export %s"%e)
-    finally :
-        con.close()
+    assert len(expGClist), "No exportable geometries found"
+    return expGClist
+    # except Exception as e:
+    #     print("Can't export %s"%e)
+    # finally :
+    #     con.close()
 
 
 
@@ -270,19 +276,19 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
         fCalc = ExportDir + "/" + BaseName + ".calc_"  # <-- extra underscore
         fXYZ  = ExportDir + "/" + BaseName + ".xyz"
         # get these file writes inside of there respective functions
-        genCalcFile(CalcTypeId,GeomId,InfoRow["Name"],Record,BaseName,Desc="",Aux="Start GId - " + str(StartGId), fileName=fCalc)
+        genCalcFile(CalcTypeId,GeomId,InfoRow["Type"],Record,BaseName,Desc="",Aux="Start GId - " + str(StartGId), fileName=fCalc)
         geomObj.createXYZfile(GeomRow, filename = fXYZ)  #< -- everything is done from outside, the geometry file
 
 
 
         # if wfn file needs to be copied from elsewhere, do that now
         if StartId:
-            if os.path.isdir(StartDir):
-                shutil.copy(StartDir+ "/%s.wfu"%StartBaseName, ExportDir )
-            else:
+            if os.path.isdir(StartDir): # not in zipped format, copy it to a new name
+                shutil.copy(StartDir+ "/%s.wfu"%StartBaseName, ExportDir+"/%s.wfu"%BaseName )
+            else: # file is in tar
                 tar = tarfile.open(StartDir+".tar.bz2")
-                tar.extract("./%s.wfu"%StartBaseName, path=ExportDir)
-
+                tar.extract("./%s.wfu"%StartBaseName, path=ExportDir) # open tar file and rename it
+                os.rename(ExportDir+"/%s.wfu"%StartBaseName, ExportDir+"/%s.wfu"%BaseName)
 
         txt = InpTempl.replace("$F$",BaseName).replace("$R$",Record)
         if StartId:
@@ -299,7 +305,7 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
 
 
 
-def ImportNearNbrJobs(Db, expFile, DataDir, iGl, isDel, isZipped):
+def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
     ExportDir = os.path.abspath(os.path.dirname(expFile))
     # this function is called with the export.dat file and export id is taken from the exofile so we dont have to check if exportid is given or not. It's obviously not given
 
@@ -308,9 +314,10 @@ def ImportNearNbrJobs(Db, expFile, DataDir, iGl, isDel, isZipped):
         exportId, calcDirs = dat[0], dat[1:]
 
     calcDirsDone = set([d for d in calcDirs if os.path.isfile("{0}/{1}/{1}.calc".format(ExportDir, d)) ])
-    con = sqlite3.connect(Db)
-    try:
-        with con:
+    # con = sqlite3.connect(dB)
+    # try:
+    #     with con:
+    with sqlite3.connect(dB) as con:
             cur = con.cursor()
             cur.execute('SELECT Status FROM Exports WHERE Id=?',(exportId,))
             exp_row = cur.fetchone()
@@ -346,14 +353,15 @@ def ImportNearNbrJobs(Db, expFile, DataDir, iGl, isDel, isZipped):
             if cur.fetchone()[0]==0:
                 cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(exportId,))
                 print('Export Id={} is now closed.'.format(exportId))
+                if isDel: shutil.rmtree(ExportDir)
             else :
                 print('Export Id={} is not closed.'.format(exportId))
 
             print("{} Jobs have been successfully imported.".format(importCount))
-    except Exception as e:
-        print( "Can't complete Import. %s"%e)
-    finally:
-        con.close()
+    # except Exception as e:
+    #     print( "Can't complete Import. %s"%e)
+    # finally:
+    #     con.close()
 
 
 
@@ -375,11 +383,11 @@ def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList, zipped):
     cur.execute("INSERT INTO Calc (GeomId,CalcId,OrbRec,Dir,AuxFiles,Results) VALUES (?, ?, ?, ?, ?, ?)", tcalc) 
 
     for iFile in glob("{}/*.*".format(CalcDir)):
-        if os.path.splitext(iFile)[1] in [".wfu"]:  # copy all file except for ignore list
+        if os.path.splitext(iFile)[1] in ignoreList:  # copy all file except for ignore list
             continue
         oFile = DestCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile)) 
         shutil.copy(iFile, oFile)
-    if Zipped:
+    if zipped:
         shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
         shutil.rmtree(DestCalcDir)
 

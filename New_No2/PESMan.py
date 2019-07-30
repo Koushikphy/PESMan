@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 import textwrap
 import ConfigParser
@@ -9,6 +11,10 @@ def checkPositive(val):
     if val <= 0: raise argparse.ArgumentTypeError("Only positive integers are allowed")
     return val
 
+def notNegetive(val):
+    val = int(val)
+    if val < 0: raise argparse.ArgumentTypeError("Only positive integers and 0 are allowed")
+    return val
 
 parser = argparse.ArgumentParser(
            prog='PESMan',
@@ -71,10 +77,10 @@ parser_export = subparsers.add_parser('export',
 parser_export.add_argument('-j', '--jobs', metavar='N', type=checkPositive, default=1, help='Number of jobs to export.\n ')
 parser_export.add_argument('--calc-id','-cid', metavar='CID', type=checkPositive, required=True, help='Id of calculation type.\n ')
 parser_export.add_argument('--gid-list','-gid', metavar='LGID', nargs='+',  type=checkPositive, default=[], help='List of one or more Gometry Ids.\n ')
-parser_export.add_argument('--sid-list','-sid', metavar='LSID', nargs='+', type=checkPositive, default=[], help='List of one or more StartGeom Ids.\n ')
-parser_export.add_argument('--depth', '-d', metavar='N', dest='Depth', type=int, default=1, help='Specify the value of search depth for near neighbour algorithms to find exportable jobs.\nDefault 1\n ')
+parser_export.add_argument('--sid-list','-sid', metavar='LSID', nargs='+', type=notNegetive, default=[], help='List of one or more StartGeom Ids.\n ')
+parser_export.add_argument('--depth', '-d', metavar='N', dest='Depth', type=notNegetive, default=1, help='Specify the value of search depth for near neighbour algorithms to find exportable jobs.\nDefault 1\n ')
 parser_export.add_argument('--template', metavar='TEMPL', dest='ComTemplate', help='Template file for generating input files.\n ')
-parser_export.add_argument('--incl-path',default=False, action='store_true', dest='IncludePath', help='Include pathological geometries.\n ')
+parser_export.add_argument('--incl-path',default=False, action='store_true',help='Include pathological geometries.\n ')
 parser_export.add_argument('--constraint', metavar='CONST', dest='ConstDb', type=str,  help='Specify a database constraint in SQLite3 query format for the geometries to be exported.\n ' )
 
  
@@ -113,6 +119,7 @@ if __name__ == '__main__':
         sidList = args.sid_list
         templ = args.ComTemplate
         const = args.ConstDb
+        incl  = args.incl_path
 
         txt = textwrap.dedent("""
         ------------------------------------
@@ -127,9 +134,11 @@ if __name__ == '__main__':
         GeomID List     : {}
         SartID List     : {}
         Template        : {}
-        """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default'))
+        Constraint      : {}
+        Include Path    : {}
+        """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, incl))
         print(txt)
-        # ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath)
+        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, incl)
 
 
     # Execute an import command
@@ -148,4 +157,4 @@ if __name__ == '__main__':
         Archive directory   : {}
         """.format(dB, pesDir, iGl, isDel, isZipped))
         print(txt)
-        # ImpExp.ImportNearNbrJobs(dB, args.ExpFile, pesDir)
+        ImportNearNbrJobs(dB, args.ExpFile, pesDir, iGl, isDel, isZipped)
