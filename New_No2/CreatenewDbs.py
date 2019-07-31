@@ -55,7 +55,7 @@ def distance(xy1, xy2):
     x2,y2 = xy2
     return np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
-def getKabsch(geom, lim=10):
+def getKabsch(geom, lim=20):
     #accessing the full geomList from the global scope
     # WARNING !!! Do not use this approach in windows system, windows doesn't uses fork to spawn child processes
     vGeom = geomList[np.where( 
@@ -78,9 +78,9 @@ if __name__ == "__main__":
     import time
     start = time.time()
     dbfile = "no2db.db"
-    con = sqlite3.connect(dbfile)
+    if os.path.exists(dbfile): os.remove(dbfile)
     try:
-        with con:
+        with sqlite3.connect(dbfile) as con:
             cur = con.cursor()
             cur.executescript(sql_script) 
 
@@ -109,5 +109,4 @@ if __name__ == "__main__":
             np.savetxt("geomdata.txt", geomList[:,:3], fmt=['%d', '%.8f', '%.8f'], delimiter='\t')
     except Exception as e:
         print("Something went wrong. %s"%e)
-    finally :
-        con.close()
+

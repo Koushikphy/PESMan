@@ -60,7 +60,7 @@ def runExportedCalcs(ScrDirCalc):
         fComBaseFile = RunDir + ".com"
 
         with cd(RunDir):
-            exitcode = subprocess.call(["molpro", "-d", ScrDirCalc, "-W .", "-n", "2", fComBaseFile])
+            exitcode = subprocess.call(["molpro", "-d", ScrDirCalc, "-W .", "-n", "2", fComBaseFile, '--no-flush6', '--no-xml-output'])
 
         if exitcode == 0:
             writeLog(fLog, "Job Successful.", True)
@@ -111,7 +111,8 @@ if __name__ == '__main__':
     # give full path please
     MolproScrDir = "/tmp/bijit/Q1-Q3-NO2"
     try:
-        dummyRun(MolproScrDir)
+        runExportedCalcs(MolproScrDir)
+        # dummyRun(MolproScrDir)
     except Exception as e:
         print("Something went wrong %s"%e)
 

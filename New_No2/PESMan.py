@@ -89,13 +89,12 @@ parser_import = subparsers.add_parser('import', description='Import calculations
                     help='Import a bunch of completed calculations')
 
 parser_import.add_argument('-e','--exp', metavar='EF', dest='ExpFile',required=True, help=''' Specify a .exp file for import, generated during export.\n ''')
-# parser_import.add_argument('-id', metavar='EID', dest='ExportId', type=int, default=0, help='ExportId for import.\n ')
 parser_import.add_argument('-ig', metavar="LIST", nargs='+',  type=str, default=[],help="List file extensions to ignore during import\n ")
 parser_import.add_argument('-del', default=False,dest='delete', action="store_true" ,help="Delete folder after successful import")
-parser_import.add_argument('-nz','--no-zip',default = True, action = "store_false", help = textwrap.dedent('''
-                            During import, by default the data folders are compressed into an archive by bzip2. 
-                            Although this reduces total size and file number substantially, this is a CPU heavy process 
-                            and compressing and decompressing takes considerable time. Use this argument to import without compressing.
+parser_import.add_argument('-zip',default = False, action = "store_true", help = textwrap.dedent('''
+                            Compress the folder during saving in GeomData folder after import using bzip2. 
+                            This reduces total size and file number substantially. But this is a CPU heavy process 
+                            and compressing and decompressing takes considerable time.
                             '''))
 
 

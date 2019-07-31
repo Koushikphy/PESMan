@@ -13,12 +13,8 @@ def addNewCalcType(db, conf):
 db = "no2db.db"
 
 conf = [{
-    "type": "multi",
-    "template": "multi-no2-pes.template",
-    "desc": ""},
-    {
-    "type": "multinact",
-    "template": "ananact.template",
+    "type": "multiana",
+    "template": "multiana.template",
     "desc": ""},
     ]
 addNewCalcType(db,conf)
