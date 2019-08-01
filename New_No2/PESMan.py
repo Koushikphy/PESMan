@@ -2,7 +2,7 @@
 
 import argparse
 import textwrap
-import ConfigParser
+# import ConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 
 
@@ -53,15 +53,14 @@ data base. This allows flexibility to externally manipulate the data if needed.
 '''),
            epilog='BEWARE: A PES is purely an artifact of Born-Oppenheimer separation!!!')
 
-parser.add_argument('--config', action='store', metavar='FILE', dest='ConfigFile', default='pesman.config',
-            help=textwrap.dedent('''\
-             Use alternate configuration file.
-             Default is 'pesman.config' file which must be
-             present in the same dir as this program.\n
-             '''))
+# parser.add_argument('--config', action='store', metavar='FILE', dest='ConfigFile', default='pesman.config',
+#             help=textwrap.dedent('''\
+#              Use alternate configuration file.
+#              Default is 'pesman.config' file which must be
+#              present in the same dir as this program.\n
+#              '''))
 
 subparsers = parser.add_subparsers(title='Currently implemented sub-commands',dest='subcommand')
-
 
 parser_export = subparsers.add_parser('export',
                         formatter_class=argparse.RawTextHelpFormatter,
@@ -88,29 +87,25 @@ parser_import = subparsers.add_parser('import', description='Import calculations
                     formatter_class=argparse.RawTextHelpFormatter,
                     help='Import a bunch of completed calculations')
 
-parser_import.add_argument('-e','--exp', metavar='EF', dest='ExpFile',required=True, help=''' Specify a .exp file for import, generated during export.\n ''')
-parser_import.add_argument('-ig', metavar="LIST", nargs='+',  type=str, default=[],help="List file extensions to ignore during import\n ")
-parser_import.add_argument('-del', default=False,dest='delete', action="store_true" ,help="Delete folder after successful import")
-parser_import.add_argument('-zip',default = False, action = "store_true", help = textwrap.dedent('''
-                            Compress the folder during saving in GeomData folder after import using bzip2. 
-                            This reduces total size and file number substantially. But this is a CPU heavy process 
-                            and compressing and decompressing takes considerable time.
-                            '''))
+parser_import.add_argument('-e','--exp', metavar='LIST', nargs='+', dest='ExpFile', required=True, help=''' Specify one/multiple export file for import, generated during export.\n ''')
+parser_import.add_argument('-ig', metavar="LIST", nargs='+', type=str, default=[],help="List file extensions to ignore during import\n ")
+parser_import.add_argument('-del', default=False,dest='delete', action="store_true" ,help="Delete folder after successful import.\n ")
+parser_import.add_argument('-zip',default = False, action = "store_true", help = '''Compress the folder during saving in GeomData folder after import. 
+This reduces total size and file number substantially. But this is a CPU heavy process 
+and compressing and decompressing takes considerable time.''')
 
 
 
 if __name__ == '__main__':
 
     args = parser.parse_args()
-    ConfParser = ConfigParser.SafeConfigParser()
-    ConfParser.read(args.ConfigFile)
 
+    # Change these to your liking
+    dB = "no2db.db"
+    pesDir = "GeomData"
+    exportDir = "ExpDir"
 
-    dB = ConfParser.get('DB','main')
-    pesDir = ConfParser.get('PESDATA','pesdir')
-    
     if args.subcommand == 'export':
-        exportDir = ConfParser.get('EXPORT', 'ExpDir')
         calcId = args.calc_id
         jobs = args.jobs
         depth = args.Depth
@@ -142,7 +137,7 @@ if __name__ == '__main__':
 
     # Execute an import command
     if args.subcommand == 'import':
-        isZipped = args.no_zip
+        isZipped = args.zip
         iGl = args.ig
         isDel = args.delete
         txt = textwrap.dedent("""
@@ -155,5 +150,5 @@ if __name__ == '__main__':
         Delete after import : {}
         Archive directory   : {}
         """.format(dB, pesDir, iGl, isDel, isZipped))
-        print(txt)
-        ImportNearNbrJobs(dB, args.ExpFile, pesDir, iGl, isDel, isZipped)
+        for expFile in args.ExpFile: # accepts multiple export files
+            ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped)
