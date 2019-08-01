@@ -1,9 +1,45 @@
 #!/usr/bin/env python
 
+import os
+import shutil
+import tarfile
 import argparse
 import textwrap
 # import ConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
+
+
+# Takes a folder path compresses it into a '.tar.bz2' file and remove the folder
+def zipOne(path):
+    print("Archiving %s"%path)
+    shutil.make_archive(path, 'bztar', root_dir=path, base_dir='./')
+    shutil.rmtree(path)
+
+# Walks through the directory structure recursively find folder to archive that matches pattern in pathList
+def zipAll(pathList):
+    for path,_,_ in os.walk('.'):
+        for subs in pathList:
+            if subs in path:
+                zipOne(path)
+
+
+#TODO: make the extension general
+# Extracts a compressed file into a folder and removes the file
+def unZipOne(path, extn = '.tar.bz2'):
+    print("Extracting %s"%path)
+    with tarfile.open(path) as tar:
+        tar.extractall(path=path.replace(extn,''))
+    os.remove(path)
+
+# Walks through the directory structure recursively from `base` and extracts compressed files
+def unzipAll(base, extn = '.tar.bz2'):
+    for root, _, files in os.walk(base):
+        for file in files:
+            if file.endswith(extn):
+                path = os.path.join(root,file)
+                unZipOne(path)
+
+
 
 
 def checkPositive(val):
@@ -15,6 +51,7 @@ def notNegetive(val):
     val = int(val)
     if val < 0: raise argparse.ArgumentTypeError("Only positive integers and 0 are allowed")
     return val
+
 
 parser = argparse.ArgumentParser(
            prog='PESMan',
@@ -96,6 +133,16 @@ and compressing and decompressing takes considerable time.''')
 
 
 
+parser_zip = subparsers.add_parser('zip', description='Archive one/multiple directory or all individual geom folders.\n ')
+parser_zip.add_argument('-d', metavar="LIST", nargs='+', type=str, default=[], help='Provide path(s) of folder(s) to archive.\n ' )
+parser_zip.add_argument('-all' ,metavar="DIR", nargs='*', type=str, help='Use this flag to archive all geom folders by default.\nAdditionally provide folder names to to search for to archive.' )
+
+parser_unzip = subparsers.add_parser('unzip', description='Extract one/multiple directory or all individual archived geom folders.\n ')
+parser_unzip.add_argument('-f', metavar="LIST", nargs='+', type=str, default=[], help='Provide path(s) of file(s) to unarchive.\n ')
+parser_unzip.add_argument('-all' ,metavar="ROOT",nargs='?',const='.', type=str, help='Use this flag to unarchive all geom folders by default.\nAdditionally provide root folder where to search for.' )
+
+
+
 if __name__ == '__main__':
 
     args = parser.parse_args()
@@ -134,7 +181,6 @@ if __name__ == '__main__':
         print(txt)
         ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, incl)
 
-
     # Execute an import command
     if args.subcommand == 'import':
         isZipped = args.zip
@@ -152,3 +198,23 @@ if __name__ == '__main__':
         """.format(dB, pesDir, iGl, isDel, isZipped))
         for expFile in args.ExpFile: # accepts multiple export files
             ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped)
+
+
+    if args.subcommand=='zip':
+        paths = args.d 
+        allPat = args.all 
+        for path in paths: # if d not provided, its empty anyway
+            zipOne(path)
+        
+        # `-all` is an optional argument with optional values
+        # i.e `-all`, `-all abc` , `-all abc xyz` all are valid
+        if allPat is not None:            # means `-all` flag is given
+            if not allPat:                # `-all` is given without any values
+                allPat = ['multi','mrci'] # some default if nothing is given
+            zipAll(allPat)
+
+    if args.subcommand=='unzip':
+        for path in args.f:
+            unZipOne(args.f)
+        if args.all:
+            unzipAll(args.all)

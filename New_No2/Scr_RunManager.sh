@@ -1,10 +1,8 @@
 #!/bin/bash
-
 #To exit the script as soon as one of the commands failed
 #--------------------------------------------------------
 set -e                     
 #--------------------------------------------------------
-
 # get value from commandline or define it here
 if [ -z "$1" ]
   then
