@@ -1,7 +1,7 @@
 {
     "files.exclude": {
         ".gitignore": true,
-        "*.pyc":true,
+        "**/*.pyc":true,
         "requirements.txt":true,
         ".vscode":true
     }
