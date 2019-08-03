@@ -28,6 +28,6 @@ do
   ./RunJob$I.py
   cd ~-
 
-  python PESMan.py import -e ExpDir/$CJDir/export.dat -del
+  python PESMan.py import -e ExpDir/$CJDir/export.dat -del -ig .xml .pun
 
 done

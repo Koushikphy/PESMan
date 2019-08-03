@@ -44,44 +44,60 @@ END TRANSACTION;
 """
 
 
+sql_nbrtable_commands = """
+BEGIN TRANSACTION;
+CREATE TABLE NbrTable (GeomId INTEGER, NbrId INTEGER, Depth INTEGER, Dist REAL);
+END TRANSACTION;
+"""
+
+
+
+r30 = np.deg2rad(30)
+lim = 30
+
 
 def distance(xy1, xy2):
-    x1,y1 = xy1 
-    x2,y2 = xy2
-    return np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+    return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
 
-def getKabsch(geom, lim=20):
+
+def getKabsch(geom, lim=lim):
     #accessing the full geomList from the global scope
     # WARNING !!! Do not use this approach in windows systems, windows doesn't uses fork to spawn child processes
     vGeom = geomList[np.where( 
-                    (geomList[:,1] > geom[1]-2.5) &
-                    (geomList[:,1] < geom[1]+2.5) &
-                    (geomList[:,2] > geom[2]-np.deg2rad(30))  &
-                    (geomList[:,2] < geom[2]+np.deg2rad(30))  &
+                    (geomList[:,1]  >= geom[1]-4.5) &
+                    (geomList[:,1]  <= geom[1]+4.5) &
+                    (geomList[:,2]  >= geom[2]-r30) &
+                    (geomList[:,2]  <= geom[2]+r03) &
                     (geomList[:, 0] != geom[0])
                     )]
-    x, y = geom[3],geom[4]
     lkabsh = np.array([distance(geom[3:], i[3:])  for i in vGeom])
     index = lkabsh.argsort()[:lim]
-    txt = ' '.join([str(int(i)) for i in vGeom[index,0]])
-    return (txt, geom[0])
+
+    return geom[0],vGeom[index,0].astype(np.int64), lkabsh[index]
 
 
 
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
-    dbfile = "no2db.db"
-    dbExist = os.path.exists(dbfile)
-    # if dbExist: os.remove(dbfile)
+    dbFile = "no2db.db"
+    nbrDbFile = 'no2db_nbr.db'       # nbr db, not going to be used in any calculations
+    dbExist = os.path.exists(dbFile)
+    if dbExist: os.remove(dbFile)    # remove old db if you want
+    if os.path.exists(nbrDbFile):    # mandatoryly remove nbr db
+        os.remove(nbrDbFile)
 
     # try:
-    with sqlite3.connect(dbfile) as con:
+    with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
         cur = con.cursor()
         cur.executescript(sql_script) 
+
+        curNbr = conNbr.cursor()
+        curNbr.executescript(sql_nbrtable_commands)
 
         newGeomList = np.dstack(np.mgrid[0.1:5.0:50j,0:180:181j]).reshape(-1,2)
         newGeomList = np.vstack([[0,0], newGeomList])
         newGeomList[:,1] = np.deg2rad(newGeomList[:,1])
+
 
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
         if dbExist: 
@@ -96,22 +112,31 @@ if __name__ == "__main__":
 
 
         assert newGeomList.size, "No new geometries to add"
-        # create any tags if necessary, use from geomObj are other functions whatever convenient
-        # tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
-        # insert the geometries and tags into database
+        # # create any tags if necessary, use from geomObj are other functions whatever convenient
+        # # tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
+        # # insert the geometries and tags into database
         cur.executemany('INSERT INTO Geometry (rho,phi) VALUES (?, ? )', newGeomList)
 
-        #get the updated table with ids
+        # #get the updated table with ids
         cur.execute('select id,rho,phi from geometry')
         geomList= np.array(cur.fetchall())
         x = geomList[:,1]*np.cos(geomList[:,2])
         y = geomList[:,1]*np.sin(geomList[:,2])
-        geomList = np.column_stack([geomList, x, y])
+        geomList = np.column_stack([ geomList, x, y])
+
 
         # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
         pool = Pool()
         dat = pool.map(getKabsch, geomList)
-        cur.executemany('UPDATE Geometry SET Nbr = ? where Id=?', dat)
+        for res in dat:
+            gId = res[0]
+            indexes = res[1]
+            distances = res[2]
+
+            cur.execute('UPDATE Geometry SET Nbr = ? where Id=?', (' '.join(map(str,indexes)), gId))
+            curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
+
+        # save the geomlist in a datafile
         geomList[:,2] = np.rad2deg(geomList[:,2])
         np.savetxt("geomdata.txt", geomList[:,:3], fmt=['%d', '%.8f', '%.8f'], delimiter='\t')
 

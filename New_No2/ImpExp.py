@@ -163,8 +163,8 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
                     continue
 
                 for depth, nId in enumerate(nbrList.split(), start=1): # main neighbour searching loop
-                    NbrId = int(nId)
-                    if maxDepth and (depth>maxDepth): break# neighbour crossed maximum allowed depth
+                    NbrId = int(float(nId))                            # extra care for potential float string
+                    if maxDepth and (depth>maxDepth): break            # neighbour crossed maximum allowed depth
 
                     if NbrId in CalcGeomIds:
                         expGClist.append([GeomId, DictCalcId[NbrId]])
@@ -320,11 +320,11 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
 
                     dCalc = parseCalc(cFiles[0])
                     fOut = "{}/{}.out".format(dirFull, dCalc['Basename'])
-                    if dCalc["CalcId"]=='1' and parseIteration(fOut, exportId) : # check iteration number for multi before proceeding
+                    if dCalc["CalcId"]=='1' and parseIteration(fOut,geomId, exportId) : # check iteration number for multi before proceeding
                         print("More than 38 iteration skipping import")
                         continue
                     
-                    fRes = fOut.replace('.out','res')
+                    fRes = fOut.replace('.out','.res')
                     sResults = parseResult(fRes)
 
                     a,b,_ = dCalc['Basename'].split('-')              # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
@@ -333,7 +333,7 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
                     tcalc = (dCalc["GeomId"],dCalc["CalcId"], destCalcDir, dCalc["StartGId"],sResults)
                     cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", tcalc)
 
-                    moveFiles(dirFull,destCalcDir, ignoreList, zipped)
+                    moveFiles(dirFull,destCalcDir, iGl, isZipped)
                     print("done.")
 
                     cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(exportId,geomId))
@@ -359,15 +359,16 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
     #     print( "Can't complete Import. {}: {}".format(type(e).__name__, e))
 
 
-def parseIteration(file, eId):
+def parseIteration(file,gId, eId):
     try:
         with open(file) as f:
             txt = f.read()
         val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]
+        val = int(val)
         if val>38:      # if more than 38 then this true will tell the main function to ignore
             return True
         with open('IterMultiJobs.dat', 'a') as f:
-            f.write('{} with Export ID {} has {} iterations.\n'.format(file, eId, val))
+            f.write('GeomI Id {} with Export ID {} has {} iterations.\n'.format(gId, eId, val))
     except Exception as e:
         print( "Can't parse multi iteration number. {}: {}".format(type(e).__name__, e))
 
@@ -379,7 +380,7 @@ def parseCalc(calcFile):
 
 
 
-def moveFiles(calcDir,DestCalcDir, ignoreList, zipped):
+def moveFiles(calcDir,destCalcDir, ignoreList, zipped):
     if not os.path.exists(destCalcDir):  os.makedirs(destCalcDir)
 
     for iFile in glob("{}/*.*".format(calcDir)):

@@ -215,6 +215,6 @@ if __name__ == '__main__':
 
     if args.subcommand=='unzip':
         for path in args.f:
-            unZipOne(args.f)
+            unZipOne(path)
         if args.all:
             unzipAll(args.all)

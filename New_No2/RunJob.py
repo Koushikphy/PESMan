@@ -91,8 +91,8 @@ if __name__ == '__main__':
     # give full path please
     MolproScrDir = "/tmp/bijit/Q1-Q3-NO2"
     try:
-        # runExportedCalcs(MolproScrDir)
-        dummyRun(MolproScrDir)
+        runExportedCalcs(MolproScrDir)
+        # dummyRun(MolproScrDir)
     except Exception as e:
         print("Something went wrong %s"%e)
 
