@@ -9,9 +9,10 @@ with sqlite3.connect('./no2db.db') as con:
 
     cur.execute("SELECT id,rho,phi from Geometry ")
     GeomRow = np.array(cur.fetchall())
-    
+
 # This is the list of indexes in geomrow corresponding to the id in calcrow
 sortedIndex = np.searchsorted(GeomRow[:,0], CalcRow[:,0], sorter=GeomRow[:,0].argsort())
+# each row of resArr  contains [rho, phi, results...]
 resArr = np.column_stack([ GeomRow[sortedIndex][:,1:], CalcRow[:,1:]])
 # sort out jumbling of rho, phi values, also remove any duplicates in process
 resArr = np.unique(resArr, axis=0)

@@ -15,10 +15,10 @@ def zipOne(path):
     shutil.make_archive(path, 'bztar', root_dir=path, base_dir='./')
     shutil.rmtree(path)
 
-# Walks through the directory structure recursively find folder to archive that matches pattern in pathList
-def zipAll(pathList):
+# Walks through the directory structure recursively finds folder to archive that matches pattern in pathList
+def zipAll(subStringList):
     for path,_,_ in os.walk('.'):
-        for subs in pathList:
+        for subs in subStringList:
             if subs in path:
                 zipOne(path)
 
@@ -64,23 +64,17 @@ PESMan - a program to manage global PES calculations.
 This program manages a large number of PES calculations of different type.
 The PES data is kept organized in a specified location. The program provides
 functionalities required to manipulate this data.
-  
 Two key functionalities provided are 'export' and 'import'.
 
   Export:
-
-      Allows a bunch of calculations to be setup automatically.
-
-      If the calculation depends on a orbital of a previous calculation,
-      the wave-function file is automatically copied and input file
-      for new calculation is constructed so as to read in the orbital data.
-
-      Different export types/algorithms are available.
+    Allows a bunch of calculations to be setup automatically.
+    If the calculation depends on a orbital of a previous calculation,
+    the wave-function file is automatically copied and input file
+    for new calculation is constructed so as to read in the orbital data.
+    Different export types/algorithms are available.
 
   Import:
-
       Allows a bunch of completed calculations to be checked in.
-
       After this, this data can be used for subsequent calculations.
       This also allows special manual calculations to be imported.
 
@@ -88,7 +82,7 @@ A database of currently defined calculations, geometry grid, and completed
 calculations of a given type is maintained. The PES data is not kept in the
 data base. This allows flexibility to externally manipulate the data if needed.
 '''),
-           epilog='BEWARE: A PES is purely an artifact of Born-Oppenheimer separation!!!')
+epilog='BEWARE: A PES is purely an artifact of Born-Oppenheimer separation!!!')
 
 # parser.add_argument('--config', action='store', metavar='FILE', dest='ConfigFile', default='pesman.config',
 #             help=textwrap.dedent('''\
@@ -101,13 +95,13 @@ subparsers = parser.add_subparsers(title='Currently implemented sub-commands',de
 
 parser_export = subparsers.add_parser('export',
                         formatter_class=argparse.RawTextHelpFormatter,
-                       description=textwrap.dedent('''\
-                       Export calculations of a certain type from the database.
-                       A 'gen' type of export uses nearest neigbour algorithm to
-                       search for best jobs to be exported, if there is dependency.
-                       The data base is modified to reflect the export.
-                       The .exp file generated can be used for subsequent import.'''),
-                       help='Export calculations of a given type')
+                        description=textwrap.dedent('''\
+                        Export calculations of a certain type from the database.
+                        A 'gen' type of export uses nearest neigbour algorithm to
+                        search for best jobs to be exported, if there is dependency.
+                        The data base is modified to reflect the export.
+                        The .exp file generated can be used for subsequent import.'''),
+                        help='Export calculations of a given type')
 
 
 parser_export.add_argument('-j', '--jobs', metavar='N', type=checkPositive, default=1, help='Number of jobs to export.\n ')
@@ -121,8 +115,8 @@ parser_export.add_argument('--constraint', metavar='CONST', dest='ConstDb', type
 
  
 parser_import = subparsers.add_parser('import', description='Import calculations into the PES database.',
-                    formatter_class=argparse.RawTextHelpFormatter,
-                    help='Import a bunch of completed calculations')
+                        formatter_class=argparse.RawTextHelpFormatter,
+                        help='Import a bunch of completed calculations')
 
 parser_import.add_argument('-e','--exp', metavar='LIST', nargs='+', dest='ExpFile', required=True, help=''' Specify one/multiple export file for import, generated during export.\n ''')
 parser_import.add_argument('-ig', metavar="LIST", nargs='+', type=str, default=[],help="List file extensions to ignore during import\n ")
@@ -151,6 +145,8 @@ if __name__ == '__main__':
     dB = "no2db.db"
     pesDir = "GeomData"
     exportDir = "ExpDir"
+    runDir    = 'RunDir'
+    impDir    = "ImpDir"
 
     if args.subcommand == 'export':
         calcId = args.calc_id
@@ -206,7 +202,7 @@ if __name__ == '__main__':
         for path in paths: # if d not provided, its empty anyway
             zipOne(path)
         
-        # `-all` is an optional argument with optional values
+        # `-all` is an optional argument with optional values of unknown lenght
         # i.e `-all`, `-all abc` , `-all abc xyz` all are valid
         if allPat is not None:            # means `-all` flag is given
             if not allPat:                # `-all` is given without any values

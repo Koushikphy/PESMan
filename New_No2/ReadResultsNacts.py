@@ -5,7 +5,7 @@ from geometry import geomObj
 
 with sqlite3.connect('no2db.db') as con:
     cur = con.cursor()
-    cur.execute("SELECT geomid,results from Calc where CalcId=2") #<- trick to collect nact jobs
+    cur.execute("SELECT geomid,results from Calc where CalcId=2") 
     CalcRow = [[i[0]]+i[1].split() for i in cur.fetchall()]
     CalcRow = np.array(CalcRow, dtype=np.float64)
 
