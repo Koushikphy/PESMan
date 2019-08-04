@@ -156,7 +156,7 @@ if __name__ == '__main__':
         sidList = args.sid_list
         templ = args.ComTemplate
         const = args.ConstDb
-        incl  = args.incl_path
+        inclp  = args.incl_path
 
         txt = textwrap.dedent("""
         ------------------------------------
@@ -173,9 +173,9 @@ if __name__ == '__main__':
         Template        : {}
         Constraint      : {}
         Include Path    : {}
-        """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, incl))
+        """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, inclp))
         print(txt)
-        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, incl)
+        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp)
 
     # Execute an import command
     if args.subcommand == 'import':

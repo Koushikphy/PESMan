@@ -1,7 +1,7 @@
 import sqlite3 
 import numpy as np 
 
-with sqlite3.connect('./no2db.db') as con:
+with sqlite3.connect('no2db.db') as con:
     cur = con.cursor()
     cur.execute("SELECT geomid,results from Calc where CalcId=1")
     CalcRow = [[i[0]]+i[1].split() for i in cur.fetchall()]
@@ -27,3 +27,4 @@ for rho in rhoList:
     np.savetxt( gRes, rhoBlock ,delimiter="\t", fmt=str("%.7f")) #<-- database has upto 7 decimal results
     np.savetxt( sRes, rhoBlock ,delimiter="\t", fmt=str("%.7f")) 
     gRes.write('\n')
+gRes.close()

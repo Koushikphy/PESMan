@@ -73,7 +73,7 @@ def getKabsch(geom, lim=lim):
     lkabsh = np.array([distance(geom[3:], i[3:])  for i in vGeom])
     index = lkabsh.argsort()[:lim]
 
-    return geom[0],vGeom[index,0].astype(np.int64), lkabsh[index]
+    return geom[0], vGeom[index,0].astype(np.int64), lkabsh[index]
 
 
 
@@ -88,8 +88,8 @@ if __name__ == "__main__":
 
     # try:
     with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
-        cur = con.cursor()
-        cur.executescript(sql_script) 
+        cur = con.cursor()                 #<--- rmove this if db exists
+        cur.executescript(sql_script)
 
         curNbr = conNbr.cursor()
         curNbr.executescript(sql_nbrtable_commands)
@@ -141,4 +141,4 @@ if __name__ == "__main__":
         np.savetxt("geomdata.txt", geomList[:,:3], fmt=['%d', '%.8f', '%.8f'], delimiter='\t')
 
     # except Exception as e:
-    #     print("{}:{}".format(type(e).__name, e))
+    #     print("{}:{}".format(type(e).__name__, e))
