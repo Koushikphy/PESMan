@@ -176,10 +176,8 @@ if __name__ == '__main__':
         Include Path    : {}
         """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, inclp))
         print(txt)
-        try:
-            ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp)
-        except Exception as e:
-            print("PESMan export failed. {}: {}".format(type(e).__name__, e))
+        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp)
+
 
     # Execute an import command
     if args.subcommand == 'import':
@@ -196,11 +194,9 @@ if __name__ == '__main__':
         Delete after import : {}
         Archive directory   : {}
         """.format(dB, pesDir, iGl, isDel, isZipped))
-        try:
-            for expFile in args.ExpFile: # accepts multiple export files
-                ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped)
-        except Exception as e:
-            print("PESMan import failed. {}: {}".format(type(e).__name__, e))
+
+        for expFile in args.ExpFile: # accepts multiple export files
+            ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped)
 
 
 
@@ -208,28 +204,21 @@ if __name__ == '__main__':
     if args.subcommand=='zip':
         paths = args.d 
         allPat = args.all 
-        try:
-            for path in paths: # if d not provided, its empty anyway
-                zipOne(path)
-            
-            # `-all` is an optional argument with optional values of unknown lenght
-            # i.e `-all`, `-all abc` , `-all abc xyz` all are valid
-            if allPat is not None:            # means `-all` flag is given
-                if not allPat:                # `-all` is given without any values
-                    allPat = ['multi','mrci'] # some default if nothing is given
-                zipAll(allPat)
-        except Exception as e:
-            print("Zipping directories failed. {}: {}".format(type(e).__name__, e))
+        for path in paths: # if d not provided, its empty anyway
+            zipOne(path)
+        
+        # `-all` is an optional argument with optional values of unknown lenght
+        # i.e `-all`, `-all abc` , `-all abc xyz` all are valid
+        if allPat is not None:            # means `-all` flag is given
+            if not allPat:                # `-all` is given without any values
+                allPat = ['multi','mrci'] # some default if nothing is given
+            zipAll(allPat)
 
 
 
     if args.subcommand=='unzip':
-        try:
-            for path in args.f:
-                unZipOne(path)
-            if args.all:
-                unzipAll(args.all)
-        except Exception as e:
-            print("Extracting directories failed. {}: {}".format(type(e).__name__, e))
-
+        for path in args.f:
+            unZipOne(path)
+        if args.all:
+            unzipAll(args.all)
 

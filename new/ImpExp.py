@@ -49,7 +49,6 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
 
 
     # The context manager prevents the database from commiting in case of error, use try-except for further control
-    # try:
     with sqlite3.connect(dB) as con:
             con.row_factory=sqlite3.Row
             cur = con.cursor()
@@ -89,94 +88,136 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
             shutil.copy("RunJob.py", fPythonFile)
             os.chmod(fPythonFile,0766)
             print("PESMan export successful: Id {} with {} job(s) exported".format(exportId, len(ExpGeomList)))
-    # except Exception as e:
-    #     print("Can't export. {}: {}".format(type(e).__name__, e))
-
 
 
 
 def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb="",bIncludePath=False):
     # Get the exportable geometries and their start id for mulit jobs, returns 
 
-    # try:
     with sqlite3.connect(dB) as con:
-            cur = con.cursor()
-            
-            # get jobs that is already done
-            cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(CalcTypeId,))
-            calcRow = cur.fetchall()
-            CalcGeomIds = set([geomId for geomId,_ in calcRow ])
-            DictCalcId  = dict(calcRow)
+        cur = con.cursor()
+        
+        # get jobs that is already done
+        cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(CalcTypeId,))
+        calcRow = cur.fetchall()
+        CalcGeomIds = set([geomId for geomId,_ in calcRow ])
+        DictCalcId  = dict(calcRow)
 
-            # set of geomIds that will be excluded from exporting
-            ExcludeGeomIds = CalcGeomIds.copy()
+        # set of geomIds that will be excluded from exporting
+        ExcludeGeomIds = CalcGeomIds.copy()
 
-            if not bIncludePath: # include pathological points
-                cur.execute("SELECT Id FROM Geometry WHERE tags LIKE '%path%'")
-                ExcludeGeomIds.update([i[0] for i in cur.fetchall()])
+        if not bIncludePath: # include pathological points
+            cur.execute("SELECT Id FROM Geometry WHERE tags LIKE '%path%'")
+            ExcludeGeomIds.update([i[0] for i in cur.fetchall()])
 
-            # collect jobs that is exported but not imported, they are mot exportable
-            cur.execute("SELECT ID FROM Exports WHERE Status=0 and CalcType=?",(CalcTypeId,))
-            ids = cur.fetchall()
-            for expId in ids:
-                cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple,returns a list of tuples, onelist for one filed i.e. GeomId
-                ExcludeGeomIds.update([i[0] for i in cur.fetchall()]) 
+        # collect jobs that is exported but not imported, they are mot exportable
+        cur.execute("SELECT ID FROM Exports WHERE Status=0 and CalcType=?",(CalcTypeId,))
+        ids = cur.fetchall()
+        for expId in ids:
+            cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple,returns a list of tuples, onelist for one filed i.e. GeomId
+            ExcludeGeomIds.update([i[0] for i in cur.fetchall()]) 
 
-        #--------------------------------------------------------------------------------
-            # lPrblmGeomIds = []
-            # ExcludeGeomIds.update(lPrblmGeomIds)
-        #--------------------------------------------------------------------------------
+    #--------------------------------------------------------------------------------
+        # lPrblmGeomIds = []
+        # ExcludeGeomIds.update(lPrblmGeomIds)
+    #--------------------------------------------------------------------------------
 
-            DictStartId = {}
-            GidListNew = []
+        DictStartId = {}
+        GidListNew = []
 
-            # in case some start geomids are provided. if gid is there but not sid then save start id as -1
-            for g,s in itertools.izip_longest(GidList,SidList):
-                if s==None: s=-1
-                DictStartId[g] = s
-                if g in ExcludeGeomIds:
-                    GidListNew.append(0)  
-                else:
-                    GidListNew.append(g)
-
-
-            sql = "SELECT Id,Nbr FROM Geometry "
-            if GidListNew and ConstDb :
-                sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ") and (" + ConstDb + ")"
-            elif GidListNew and not ConstDb:
-                sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ")"
-            elif not GidListNew and ConstDb:
-                sql += "where "  + ConstDb
-            cur.execute(sql)
+        # in case some start geomids are provided. if gid is there but not sid then save start id as -1
+        for g,s in itertools.izip_longest(GidList,SidList):
+            if s==None: s=-1
+            DictStartId[g] = s
+            if g in ExcludeGeomIds:
+                GidListNew.append(0)  
+            else:
+                GidListNew.append(g)
 
 
-            expGClist = []   # list that collects the exportable jobs info
-            for GeomId, nbrList in cur:
-                if GeomId in ExcludeGeomIds: continue     # geometry already exist, skip
 
-                if GidListNew and DictStartId[GeomId]>=0: # negetive start id will go to main neighbour searching loop
-                    NbrId = DictStartId[GeomId]           # i.e. 0 or positive startid given
-                    if not NbrId :                        # 0 startid nothing to do here
-                        expGClist.append([GeomId, 0])
-                    elif NbrId in CalcGeomIds :           # positive start id, include if calculation is already done
-                        expGClist.append([GeomId, DictCalcId[NbrId]])
-                    continue
+        sql = "SELECT Id,Nbr FROM Geometry "
+        if GidListNew and ConstDb :
+            sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ") and (" + ConstDb + ")"
+        elif GidListNew and not ConstDb:
+            sql += "where id in (" + ",".join([str(i) for i in GidListNew]) + ")"
+        elif not GidListNew and ConstDb:
+            sql += "where "  + ConstDb
+        cur.execute(sql)
 
-                for depth, nId in enumerate(nbrList.split(), start=1): # main neighbour searching loop
-                    NbrId = int(float(nId))                            # extra care for potential float string
-                    if maxDepth and (depth>maxDepth): break            # neighbour crossed maximum allowed depth
 
-                    if NbrId in CalcGeomIds:
-                        expGClist.append([GeomId, DictCalcId[NbrId]])
-                        break # got one match now don't search for any other neighbours
 
-                if len(expGClist)==jobs:     break         # got all the geometries needed
+
+
+        # expGClist = []   # list that collects the exportable jobs info
+        # for GeomId, nbrList in cur:
+        #     if GeomId in ExcludeGeomIds: continue     # geometry already exist, skip
+
+        #     if GidListNew and DictStartId[GeomId]>=0: # negetive start id will go to main neighbour searching loop
+        #         NbrId = DictStartId[GeomId]           # i.e. 0 or positive startid given
+        #         if not NbrId :                        # 0 startid nothing to do here
+        #             expGClist.append([GeomId, 0])
+        #         elif NbrId in CalcGeomIds :           # positive start id, include if calculation is already done
+        #             expGClist.append([GeomId, DictCalcId[NbrId]])
+        #         continue
+
+        #     for depth, nId in enumerate(nbrList.split(), start=1): # main neighbour searching loop
+        #         NbrId = int(float(nId))                            # extra care for potential float string
+        #         if maxDepth and (depth>maxDepth): break            # neighbour crossed maximum allowed depth
+
+        #         if NbrId in CalcGeomIds:
+        #             expGClist.append([GeomId, DictCalcId[NbrId]])
+        #             break # got one match now don't search for any other neighbours
+
+        #     if len(expGClist)==jobs:     break         # got all the geometries needed
+
+
+        # new implementation
+        # so first go through the geometries directly from the cur iterator and check for export and 
+        # also store the potential miss as list, then , go through the lists again in the following checks
+
+
+        expGClist = []   # list that collects the exportable jobs info
+        fullGeomList = []   # a naive approach: store all the missed geometries
+        for GeomId, nbrList in cur:
+            if len(expGClist)==jobs:     return expGClist         # got all the geometries needed
+            if GeomId in ExcludeGeomIds: continue                 # geometry already exist, skip
+
+            if GidListNew and DictStartId[GeomId]>=0:             # negetive start id will go to main neighbour searching loop
+                NbrId = DictStartId[GeomId]                       # i.e. 0 or positive startid given
+                if not NbrId :                                    # 0 startid nothing to do here
+                    expGClist.append([GeomId, 0])
+                elif NbrId in CalcGeomIds :                       # positive start id, include if calculation is already done
+                    expGClist.append([GeomId, DictCalcId[NbrId]])
+                continue
+
+            nbrList = map(int, nbrList.split())                   # Care ful about integer mapping
+            NbrId = nbrList[0]                                    # for this initial loop only consider first neighbour
+
+            if NbrId in CalcGeomIds:
+                expGClist.append([GeomId, DictCalcId[NbrId]])     # got one match 
+                continue
+
+            fullGeomList.append([GeomId, nbrList])
+
+        depth = maxDepth if not maxDepth else len(fullGeomList[0][1])  #<--- handle 0 depth properly
+        exportedGeom = set([])
+
+        for d in range(depth):   # depth loop
+            for GeomId, nbrList in fullGeomList:
+                if len(expGClist)==jobs:   return expGClist         # got all the geometries needed
+                if GeomId in exportedGeom: continue
+
+                NbrId = nbrList[d+1]
+                if NbrId in CalcGeomIds:
+                    expGClist.append([GeomId, DictCalcId[NbrId]])  # got one match now don't search for any other neighbours
+                    exportedGeom.add(GeomId)
+
+
 
         # preventing null exports
     assert len(expGClist), "No exportable geometries found"
     return expGClist
-    # except Exception as e:
-    #     print("Can't export. {}: {}".format(type(e).__name__, e))
 
 
 
@@ -321,7 +362,7 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
                     dCalc = parseCalc(cFiles[0])
                     fOut = "{}/{}.out".format(dirFull, dCalc['Basename'])
                     if dCalc["CalcId"]=='1' and parseIteration(fOut,geomId, exportId) : # check iteration number for multi before proceeding
-                        print("More than 38 iteration skipping import")
+                        print("More than 38 iteration skipping import")                 #! remove this from here
                         continue
                     
                     fRes = fOut.replace('.out','.res')

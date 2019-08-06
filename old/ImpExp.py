@@ -776,7 +776,7 @@ def GetExpGeomNearNbr(Db,CalcTypeId,GidSingle=0,GidList=[],SidList=[],MaxGeom=50
              
               geomlist = []
               for GeomRow in cur:
-                 geomlist.append(GeomRow["Id"]) 
+                 geomlist.append(GeomRow["Id"])
  
               Query = "SELECT GeomId,NbrId FROM NbrTable WHERE GeomId in (" + ",".join([str(i) for i in geomlist]) +\
                       ")" + "and Depth = ?"
