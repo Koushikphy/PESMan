@@ -149,8 +149,13 @@ if __name__ == '__main__':
 
     # Change these to your liking
     dB = scf.get('DataBase', 'db')
-    pesDir = scf.get('Directories', 'GeomData')
-    exportDir = scf.get('Directories', 'ExpDir')
+    pesDir = scf.get('Directories', 'geomgata')
+    exportDir = scf.get('Directories', 'expdir')
+    molInfo = scf.items('molInfo')
+    try:
+        molInfo['extra'] = molInfo['extra'].split()
+    except KeyError:
+        molInfo['extra'] = []
 
 
     if args.subcommand == 'export':
@@ -180,7 +185,7 @@ if __name__ == '__main__':
         Include Path    : {}
         """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, inclp))
         print(txt)
-        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp)
+        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo)
 
 
     # Execute an import command

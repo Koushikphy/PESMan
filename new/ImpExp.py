@@ -39,7 +39,7 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
 
 
 
-def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath):
+def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo):
     # Main export function that exports a given number of jobs for a specified calcid type
     # collect the geomid that are exportable and the calc table id which will be used as their startid
     if calcTypeId > 1: # Mrci or nact export
@@ -85,10 +85,11 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
 
             # save the python file that will run the jobs
             fPythonFile =   "{}/RunJob{}.py".format(ExpDir, exportId)
-            shutil.copy("RunJob.py", fPythonFile)
-            os.chmod(fPythonFile,0766)
+            createRunJob(molInfo, fPythonFile)
+            # shutil.copy("RunJob.py", fPythonFile)
+            # os.chmod(fPythonFile,0766)
             print("PESMan export successful: Id {} with {} job(s) exported".format(exportId, len(ExpGeomList)))
-            return ExpDir, exportId
+            return ExpDir, exportId, expDirs
 
 
 
@@ -331,7 +332,7 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
 
                     dirFull = ExportDir + "/" + calcDir
                     cFiles = glob(dirFull+"/*.calc")
-                    assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
+                    # assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
 
                     print("Importing ...{}...".format(dirFull), end='')
                     ImportCalc(cur,dirFull,cFiles[0],DataDir, ignoreList=iGl, zipped=isZipped)
@@ -384,3 +385,100 @@ def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList, zipped):
     if zipped:
         shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
         shutil.rmtree(DestCalcDir)
+
+
+
+
+def createRunJob(molInfo, file):
+    txt = '''
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import os
+import subprocess
+from datetime import datetime
+
+
+def writeLog(fLog, msg, cont=False): # writes to the log file
+    if not cont : 
+        msg = '{:.<90}'.format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg)
+    else:
+        msg+='\n'
+    fLog.write(msg)
+    fLog.flush()
+
+
+def runExportedCalcs(scrDir, proc, extra):
+    """ Run or continue a series of exported jobs."""
+
+    # first open export.dat file and collect information about exported jobs
+    with open("export.dat",'r') as f:
+        sExpDat = f.read().split("\n",1)[1]
+
+    # obtain a list of incomplete jobs
+    # such jobs will not have corresponding .calc file, but .calc_ file
+    CalcDirs = sExpDat.split()
+    DirsDone = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc")]
+    DirsToDo = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc_")]
+    mainDirectory = os.getcwd()
+
+    #    if len(CalcDirs) != len(DirsDone) + len(DirsToDo):
+    #       raise Exception("Some dirs in this export directory = " + os.getcwd() + " seem to not have .calc/.calc_ file.")
+
+    fLog = open("run.log","a")
+    if len(DirsDone):
+        txt = "Skipping already compelted job Dir: \n" + '\n'.join(DirsDone)
+        writeLog(fLog, txt, True)
+
+    # now execute each job
+    for RunDir in DirsToDo:
+        writeLog(fLog, "Running Job for "+RunDir)
+
+        fComBaseFile = RunDir + ".com"
+
+        os.chdir(RunDir)
+        exitcode = subprocess.call(["molpro", "-d", scrDir, "-W .", "-n", proc, fComBaseFile]+extra)
+        os.chdir(mainDirectory)
+
+        if exitcode == 0:
+            writeLog(fLog, "Job Successful.", True)
+            os.rename( "{0}/{0}.calc_".format(RunDir), "{0}/{0}.calc".format(RunDir))    # rename .calc_ file so that it can be imported
+
+        else:
+            writeLog(fLog, "Job Failed.", True)
+
+    writeLog(fLog, "All Jobs Completed\n")
+    writeLog(fLog, "."*70, True)
+    fLog.close()
+
+
+
+def dummyRun(scrDir, proc, extra):
+    """ Used only for debugging purpose"""
+
+    with open("export.dat",'r') as f:
+        sExpDat = f.read().split("\n",1)[1]
+    DirsToDo = [d for d in sExpDat.split() if os.path.isfile(d+"/"+d+".calc_")]
+    for RunDir in DirsToDo:
+        fComBaseFile = RunDir + ".com"
+        with cd(RunDir):
+            with open("%s.wfu"%RunDir, "w") as f: f.write("Nothing to see here")
+            with open("%s.res"%RunDir, "w") as f: f.write("21 111 73")
+            os.rename( "%s.calc_"%RunDir, "%s.calc"%RunDir)
+
+
+
+
+if __name__ == '__main__':
+
+    scrDir = {}
+    proc   = {}
+    extra  = {}
+
+    runExportedCalcs(scrDir, proc, extra)
+    # dummyRun(scrDir, proc, extra)
+
+'''.format(molInfo['scrDir'], molInfo['proc'], molInfo['extra'])
+    with open(file, 'w') as f:
+        f.write(txt)
+    os.chmod(fPythonFile,0766)

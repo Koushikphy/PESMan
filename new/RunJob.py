@@ -4,18 +4,6 @@
 import os
 import subprocess
 from datetime import datetime
-from contextlib import contextmanager
-
-
-
-@contextmanager
-def cd(newdir):
-    prevdir = os.getcwd()
-    os.chdir(os.path.expanduser(newdir))
-    try:
-        yield
-    finally:
-        os.chdir(prevdir)
 
 
 def writeLog(fLog, msg, cont=False): # writes to the log file
@@ -27,7 +15,7 @@ def writeLog(fLog, msg, cont=False): # writes to the log file
     fLog.flush()
 
 
-def runExportedCalcs(ScrDirCalc):
+def runExportedCalcs(scrDir, proc, extra):
     """ Run or continue a series of exported jobs."""
 
     # first open export.dat file and collect information about exported jobs
@@ -39,6 +27,7 @@ def runExportedCalcs(ScrDirCalc):
     CalcDirs = sExpDat.split()
     DirsDone = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc")]
     DirsToDo = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc_")]
+    mainDirectory = os.getcwd()
 
     #    if len(CalcDirs) != len(DirsDone) + len(DirsToDo):
     #       raise Exception("Some dirs in this export directory = " + os.getcwd() + " seem to not have .calc/.calc_ file.")
@@ -54,8 +43,9 @@ def runExportedCalcs(ScrDirCalc):
 
         fComBaseFile = RunDir + ".com"
 
-        with cd(RunDir):
-            exitcode = subprocess.call(["molpro", "-d", ScrDirCalc, "-W .", "-n", "2", fComBaseFile, '--no-flush6', '--no-xml-output'])
+        os.chdir(RunDir)
+        exitcode = subprocess.call(["molpro", "-d", scrDir, "-W .", "-n", proc, fComBaseFile]+extra)
+        os.chdir(mainDirectory)
 
         if exitcode == 0:
             writeLog(fLog, "Job Successful.", True)
@@ -70,7 +60,7 @@ def runExportedCalcs(ScrDirCalc):
 
 
 
-def dummyRun(ScrDirCalc):
+def dummyRun(scrDir, proc, extra):
     """ Used only for debugging purpose"""
 
     with open("export.dat",'r') as f:
@@ -89,12 +79,13 @@ def dummyRun(ScrDirCalc):
 if __name__ == '__main__':
 
     # give full path please
-    MolproScrDir = "/tmp/bijit/Q1-Q3-NO2"
-    try:
-        runExportedCalcs(MolproScrDir)
-        # dummyRun(MolproScrDir)
-    except Exception as e:
-        print("Something went wrong %s"%e)
+    scrDir = "/tmp/bijit/Q1-Q3-NO2"
+    proc   = 1
+    extra  = []
+
+    runExportedCalcs(scrDir, proc, extra)
+    # dummyRun(scrDir, proc, extra)
+
 
 
 

@@ -1,46 +1,16 @@
 from ConfigParser import SafeConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
-import os,shutil
+import os,shutil,re,glob
+from datetime import datetime
+import ReadResultsMulti as rs
 
 
-
-
-def parseIteration(file,gId, eId):
-    try:
-        with open(file) as f:
-            txt = f.read()
-        val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]
-        val = int(val)
-        if val>38:      # if more than 38 then this true will tell the main function to ignore
-            return True
-        with open('IterMultiJobs.dat', 'a') as f:
-            f.write('GeomI Id {} with Export ID {} has {} iterations.\n'.format(gId, eId, val))
-    except Exception as e:
-        print( "Can't parse multi iteration number. {}: {}".format(type(e).__name__, e))
-
-
-
-
-scf= SafeConfigParser()
-scf.read('pesman.config')
-
-
-dB = scf.get('DataBase', 'db')
-pesDir = scf.get('Directories', 'GeomData')
-expDir = scf.get('Directories', 'ExpDir')
-runDir = scf.get('Directories', 'RunDir')
-impDir = scf.get('Directories', 'ImpDir')
-
-
-for fold in [runDir, impDir]:
-    if not os.path.exists(fold):
-        os.makedirs(fold)
-
-
+#################################################
 # provide user specific options
 calcId = 1
-jobs = 1
 depth = 0
+maxJobs = 100
+raedResultsStep=25
 constraint = None
 includePath = False
 ignoreFiles = []
@@ -50,24 +20,78 @@ zipAfterImport=False
 templ = None
 gidList = []
 sidList = []
+jobs = 1
+#############################################
 
+
+
+def parseIteration(thisImpDir, eId, expEdDir):
+    outFile ='{0}/{1}/{1}.out'.format(thisImpDir, expEdDir)
+    gId = re.findall('geom(\d+)-', expEdDir)[0]
+    with open(file) as f:
+        txt = f.read()
+    val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]
+    val = int(val)
+    with open('IterMultiJobs.dat', 'a') as f:
+        f.write('GeomI Id {} with Export ID {} has {} iterations.\n'.format(gId, eId, val))
+    if val>38:      # if more than 38 then this true will tell the main function to ignore
+        return True
+
+
+
+scf= SafeConfigParser()
+scf.read('pesman.config')
+
+
+dB = scf.get('DataBase', 'db')
+pesDir = scf.get('Directories', 'geomdata')
+expDir = scf.get('Directories', 'expdir')
+runDir = scf.get('Directories', 'rundir')
+impDir = scf.get('Directories', 'impdir')
+molInfo = scf.items('molInfo')
+try:
+    molInfo['extra'] = molInfo['extra'].split()
+except KeyError:
+    molInfo['extra'] = []
+
+# create rundir and impdir if does'nt exist
+for fold in [runDir, impDir]:
+    if not os.path.exists(fold):
+        os.makedirs(fold)
 
 mainDirectory = os.getcwd()
 
+counter = 0
 
-thisExpDir, exportId = ExportNearNbrJobs(dB, calcId, jobs, expDir,pesDir, templ, gidList, sidList, depth, constraint, includePath)
-thisRunDir = thisExpDir.replace(expDir, runDir)
-thisImpDir = thisExpDir.replace(expDir, ImpDir)
-shutil.copytree(thisExpDir, thisRunDir)
+for jobNo in range(1,maxJobs+1):
+    print "{}\tStarting Job No : {}{}".format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]"), jobNo, '*'*25)
+    thisExpDir, exportId, expEdDir = ExportNearNbrJobs(dB, calcId, jobs, expDir,pesDir, templ, gidList, sidList, depth, constraint, includePath, molInfo)
+    expEdDir = expEdDir[0]  # only one job is exported in each run
+    thisRunDir = thisExpDir.replace(expDir, runDir)
+    thisImpDir = thisExpDir.replace(expDir, ImpDir)
 
-os.chdir(thisRunDir)  # go back to main directory
-runJobPy = 'RunJob%s.py'%exportId
-execfile(runJobPy)
+    shutil.copytree(thisExpDir, thisRunDir)
 
-os.chdir(mainDirectory)
+    os.chdir(thisRunDir)  # go back to main directory
+    runJobPy = 'RunJob%s.py'%exportId
+    execfile(runJobPy)
 
-shutil.copytree(thisRunDir, thisImpDir)
+    os.chdir(mainDirectory)
 
-expFile = thisImpDir+'/export.dat'
-ImportNearNbrJobs(dB, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport)
+    shutil.move(thisRunDir, ImpDir)
 
+
+    if parseIteration(thisImpDir, exportId, expEdDir):
+        expFile = thisImpDir+'/export.dat'
+        ImportNearNbrJobs(dB, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport)
+        shutil.rmtree(thisExp)
+    else:
+        print 'Job has more than 38 iteration. Skipping import'
+        continue
+
+    counter+=1
+    if not counter%raedResultsStep:
+        rs.main(dB)
+
+rs.main(dB)
+print "Total number of successful jobs done : {}".format(counter)
