@@ -23,29 +23,7 @@ def jac2cart(geom):
     return np.array([[f1y,f1z], [h2y,h2z], [h3y,h3z] ])
 
 
-def geom_tags(geom):
-    """ generate tags for geometry """
-    theta = geom[2]
-    dat = jac2cart(geom)
-    # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
-    # so dists are distances of fh, hh, fh
-    tmpdat = dat[[1, 2, 0]] - dat
-    dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
 
-    path    = np.any(dists < (0.6/0.529177209)) #0.6 bohrs
-    channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
-    linear  = np.abs(theta) < 1.0e-10
-
-    l = []
-    if linear:   # linear position
-        l.append("linear")
-        if channel:
-            l.append("Finside")
-        else:
-            l.append("Foutside")
-    if path:
-        l.append("path")
-    return ":".join(l)
 
 
 class Spectroscopic(object):
@@ -154,6 +132,30 @@ class Scattering(object):
         gamma = np.arctan2(y,x)
         return (rs, rc, gamma)
 
+    def geom_tags(self, geom):
+        """ generate tags for geometry """
+        rho, theta, phi = geom
+        dat = self.hyperToCart(*geom)
+        # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
+        # so dists are distances of fh, hh, fh
+        tmpdat = dat[[1, 2, 0]] - dat
+        dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
+    
+        path    = np.any(dists < (0.6/0.529177209)) #0.6 bohrs
+        channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
+        linear  = np.abs(theta) < 1.0e-10
+    
+        l = []
+        if linear:   # linear position
+            l.append("linear")
+            if channel:
+                l.append("Finside")
+            else:
+                l.append("Foutside")
+        if path:
+            l.append("path")
+        return ":".join(l)
+
     def hyperToCart(self, rho, theta, phi):
         # create an cartesian corodinate from hyper spherical coordiante
         rs, rc, gamma = self.toJacobi(rho, theta, phi)
@@ -164,16 +166,51 @@ class Scattering(object):
 
 
 
+
+
 class Jacobi(object):
-    def __init__(self, atoms, masses):
-        pass
+    def __init__(self, atoms):
+        self.atoms = atoms
 
-    def getCart(self):
-        pass
-    
+    def getCart(self, sr, cr, gamma):
+        p1 = [0,0.0,  sr/2.0 ]
+        p2 = [0,0.0, -sr/2.0]
+        p3 = [0, cr*np.sin(gamma), cr*np.cos(gamma)]
+        return np.array([p1, p2, p3])*ang # return in angstrom
+
     def createXYZfile(self, geomRow, filename):
-        pass
+        sr = geomRow["sr"]
+        cr = geomRow["cr"]
+        gamma = geomRow["gamma"]
+        gId = geomRow["Id"]
+        curGeom = self.getCart(sr, cr, gamma)
+        txt = "{}\nGeometry file for GeomId {} : sr={}, cr={}, gamma={}\n".format(len(self.atoms), gId, sr, cr, gamma)
+        for i,j in zip(self.atoms, curGeom):  txt += "{},{:7.3f},{:7.3f},{:7.3f}\n".format(i, *j)
+        with open(filename,"w") as f:  f.write(txt)
 
+    def geom_tags(self, geom):
+        """ generate tags for geometry """
+        sr, cr, gamma = geom
+        dat = self.getCart(sr, cr, gamma)
+        # dat -> h,h,he and dat[[1, 2, 0]] -> h,he,h
+        # so dists are distances of hh, hhe, heh
+        tmpdat = dat[[1, 2, 0]] - dat
+        dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
+
+        path    = np.any(dists < (0.5/0.529177209)) #0.5 bohrs
+        channel = np.abs(dists[1] + dists[2] - dists[0]) < 1.0e-10
+        linear  = np.abs(gamma) < 1.0e-10
+
+        l = []
+        if linear:   # linear position
+            l.append("linear")
+            if channel:
+                l.append("Heinside")
+            else:
+                l.append("Heoutside")
+        if path:
+            l.append("path")
+        return ":".join(l)
 
 aq1   = [0.0000000, 0.6167049, 0.0000000, 0.4760237,-0.2885117, 0.0000000,-0.4760237,-0.2885117, 0.0000000] 
 aq2   = [0.8122235, 0.0000000, 0.0000000,-0.3799808,-0.1605027, 0.0000000,-0.3799808, 0.1605027, 0.0000000]

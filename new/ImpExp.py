@@ -88,6 +88,7 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
             shutil.copy("RunJob.py", fPythonFile)
             os.chmod(fPythonFile,0766)
             print("PESMan export successful: Id {} with {} job(s) exported".format(exportId, len(ExpGeomList)))
+            return ExpDir, exportId
 
 
 
@@ -147,48 +148,18 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
 
 
 
-
-
-        # expGClist = []   # list that collects the exportable jobs info
-        # for GeomId, nbrList in cur:
-        #     if GeomId in ExcludeGeomIds: continue     # geometry already exist, skip
-
-        #     if GidListNew and DictStartId[GeomId]>=0: # negetive start id will go to main neighbour searching loop
-        #         NbrId = DictStartId[GeomId]           # i.e. 0 or positive startid given
-        #         if not NbrId :                        # 0 startid nothing to do here
-        #             expGClist.append([GeomId, 0])
-        #         elif NbrId in CalcGeomIds :           # positive start id, include if calculation is already done
-        #             expGClist.append([GeomId, DictCalcId[NbrId]])
-        #         continue
-
-        #     for depth, nId in enumerate(nbrList.split(), start=1): # main neighbour searching loop
-        #         NbrId = int(float(nId))                            # extra care for potential float string
-        #         if maxDepth and (depth>maxDepth): break            # neighbour crossed maximum allowed depth
-
-        #         if NbrId in CalcGeomIds:
-        #             expGClist.append([GeomId, DictCalcId[NbrId]])
-        #             break # got one match now don't search for any other neighbours
-
-        #     if len(expGClist)==jobs:     break         # got all the geometries needed
-
-
-        # new implementation
-        # so first go through the geometries directly from the cur iterator and check for export and 
-        # also store the potential miss as list, then , go through the lists again in the following checks
-
-
         expGClist = []   # list that collects the exportable jobs info
         fullGeomList = []   # a naive approach: store all the missed geometries
         for GeomId, nbrList in cur:
-            if len(expGClist)==jobs:     return expGClist         # got all the geometries needed
             if GeomId in ExcludeGeomIds: continue                 # geometry already exist, skip
-
             if GidListNew and DictStartId[GeomId]>=0:             # negetive start id will go to main neighbour searching loop
                 NbrId = DictStartId[GeomId]                       # i.e. 0 or positive startid given
                 if not NbrId :                                    # 0 startid nothing to do here
                     expGClist.append([GeomId, 0])
                 elif NbrId in CalcGeomIds :                       # positive start id, include if calculation is already done
                     expGClist.append([GeomId, DictCalcId[NbrId]])
+                if len(expGClist)==jobs: 
+                    return expGClist         # got all the geometries needed
                 continue
 
             nbrList = map(int, nbrList.split())                   # Care ful about integer mapping
@@ -196,27 +167,28 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
 
             if NbrId in CalcGeomIds:
                 expGClist.append([GeomId, DictCalcId[NbrId]])     # got one match 
+                if len(expGClist)==jobs:
+                    return expGClist
                 continue
-
             fullGeomList.append([GeomId, nbrList])
 
-        depth = maxDepth if not maxDepth else len(fullGeomList[0][1])  #<--- handle 0 depth properly
+        
+        depth = maxDepth if maxDepth else len(fullGeomList[0][1])  #<--- handle 0 depth properly, this is poor
         exportedGeom = set([])
-
-        for d in range(depth):   # depth loop
+        for d in range(1,depth):                                   # depth loop starting from 1 to end, 
             for GeomId, nbrList in fullGeomList:
-                if len(expGClist)==jobs:   return expGClist         # got all the geometries needed
                 if GeomId in exportedGeom: continue
 
-                NbrId = nbrList[d+1]
+                NbrId = nbrList[d]                                # get d-th neighbour
                 if NbrId in CalcGeomIds:
                     expGClist.append([GeomId, DictCalcId[NbrId]])  # got one match now don't search for any other neighbours
+                    if len(expGClist)==jobs:     
+                        return expGClist
                     exportedGeom.add(GeomId)
 
 
-
-        # preventing null exports
-    assert len(expGClist), "No exportable geometries found"
+    # preventing null exports
+    assert len(expGClist), "No Exportable geometries found"
     return expGClist
 
 
@@ -225,7 +197,7 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
 
 def GetExpMrciNactJobs(dB,CalcTypeId,jobs=50,ConstDb=""):
 
-    # try:
+
     with sqlite3.connect(dB) as con:
             cur = con.cursor()
 
@@ -259,10 +231,9 @@ def GetExpMrciNactJobs(dB,CalcTypeId,jobs=50,ConstDb=""):
                         break
 
     # preventing null exports
-    assert len(expGClist), "No exportable geometries found"
+    assert len(expGClist), "No Exportable geometries found"
     return expGClist
-    # except Exception as e:
-    #     print("Can't export. {}: {}".format(type(e).__name__, e))
+
 
 
 
@@ -327,8 +298,13 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
 
 
 
+
+
+
+
+
 def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
-    # imports jobs from a given export.dat file
+    # imports jobs from a givrn export.dat file
 
     ExportDir = os.path.abspath(os.path.dirname(expFile))
 
@@ -338,7 +314,7 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
 
     # only consider the folder that has a `.calc` file
     calcDirsDone = set([d for d in calcDirs if os.path.isfile("{0}/{1}/{1}.calc".format(ExportDir, d)) ])
-    # try:
+
     with sqlite3.connect(dB) as con:
             cur = con.cursor()
             cur.execute('SELECT Status FROM Exports WHERE Id=?',(exportId,))         # check if the export id is ready for export
@@ -358,24 +334,8 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
                     assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
 
                     print("Importing ...{}...".format(dirFull), end='')
-
-                    dCalc = parseCalc(cFiles[0])
-                    fOut = "{}/{}.out".format(dirFull, dCalc['Basename'])
-                    if dCalc["CalcId"]=='1' and parseIteration(fOut,geomId, exportId) : # check iteration number for multi before proceeding
-                        print("More than 38 iteration skipping import")                 #! remove this from here
-                        continue
-                    
-                    fRes = fOut.replace('.out','.res')
-                    sResults = parseResult(fRes)
-
-                    a,b,_ = dCalc['Basename'].split('-')              # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
-                    destCalcDir = DataDir+"/{}/{}".format(b,a)
-
-                    tcalc = (dCalc["GeomId"],dCalc["CalcId"], destCalcDir, dCalc["StartGId"],sResults)
-                    cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", tcalc)
-
-                    moveFiles(dirFull,destCalcDir, iGl, isZipped)
-                    print("done.")
+                    ImportCalc(cur,dirFull,cFiles[0],DataDir, ignoreList=iGl, zipped=isZipped)
+                    print("done")
 
                     cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(exportId,geomId))
                     importCount += 1
@@ -395,72 +355,32 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
             else :
                 print('Export Id={} is not closed.'.format(exportId))
 
-            print("{} Job(s) have been successfully imported.\n ".format(importCount))
-    # except Exception as e:
-    #     print( "Can't complete Import. {}: {}".format(type(e).__name__, e))
-
-
-def parseIteration(file,gId, eId):
-    try:
-        with open(file) as f:
-            txt = f.read()
-        val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]
-        val = int(val)
-        if val>38:      # if more than 38 then this true will tell the main function to ignore
-            return True
-        with open('IterMultiJobs.dat', 'a') as f:
-            f.write('GeomI Id {} with Export ID {} has {} iterations.\n'.format(gId, eId, val))
-    except Exception as e:
-        print( "Can't parse multi iteration number. {}: {}".format(type(e).__name__, e))
-
-
-def parseCalc(calcFile):
-    with open(calcFile,'r') as f:
-        txt = f.read().split("\n")[1:]      #first line comment
-    return dict([map(str.strip, i.split(":")) for i in txt])
+            print("{} Job(s) have been successfully imported.".format(importCount))
 
 
 
-def moveFiles(calcDir,destCalcDir, ignoreList, zipped):
-    if not os.path.exists(destCalcDir):  os.makedirs(destCalcDir)
 
-    for iFile in glob("{}/*.*".format(calcDir)):
+
+def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList, zipped):
+
+    with open(CalcFile,'r') as f:
+        txt = f.read().split("\n")[1:] #first line comment
+    dCalc = dict([map(str.strip, i.split(":")) for i in txt])
+
+    a,b,_ = dCalc['Basename'].split('-') # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
+    DestCalcDir = DataDir+"/{}/{}".format(b,a)
+    fRes = "{}/{}.res".format(CalcDir, dCalc['Basename'])
+    sResults = parseResult(fRes)
+    if not os.path.exists(DestCalcDir):  os.makedirs(DestCalcDir)
+
+    tcalc = (dCalc["GeomId"],dCalc["CalcId"], DestCalcDir, dCalc["Aux"],sResults)
+    cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,AuxFiles,Results) VALUES (?, ?, ?, ?, ?)", tcalc) 
+
+    for iFile in glob("{}/*.*".format(CalcDir)):
         if os.path.splitext(iFile)[1] in ignoreList:  # copy all file except for ignore list
             continue
-        oFile = destCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile)) 
+        oFile = DestCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile)) 
         shutil.copy(iFile, oFile)
     if zipped:
-        shutil.make_archive(destCalcDir, 'bztar', root_dir=destCalcDir, base_dir='./')
-        shutil.rmtree(destCalcDir)
-
-
-
-
-
-
-# def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList, zipped):
-
-#     with open(CalcFile,'r') as f:
-#         txt = f.read().split("\n")[1:] #first line comment
-#     dCalc = dict([map(str.strip, i.split(":")) for i in txt])
-
-#     a,b,_ = dCalc['Basename'].split('-')              # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
-#     DestCalcDir = DataDir+"/{}/{}".format(b,a)
-#     fRes = "{}/{}.res".format(CalcDir, dCalc['Basename'])
-#     sResults = parseResult(fRes)
-#     fOut = fRes.replace('.com','.out')
-#     if parseIteration(fOut): return True
-
-#     if not os.path.exists(DestCalcDir):  os.makedirs(DestCalcDir)
-
-#     tcalc = (dCalc["GeomId"],dCalc["CalcId"], DestCalcDir, dCalc["StartGId"],sResults)
-#     cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", tcalc) 
-
-#     for iFile in glob("{}/*.*".format(CalcDir)):
-#         if os.path.splitext(iFile)[1] in ignoreList:  # copy all file except for ignore list
-#             continue
-#         oFile = DestCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile)) 
-#         shutil.copy(iFile, oFile)
-#     if zipped:
-#         shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
-#         shutil.rmtree(DestCalcDir)
+        shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
+        shutil.rmtree(DestCalcDir)

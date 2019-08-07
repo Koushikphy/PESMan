@@ -3,7 +3,7 @@ import os
 import sqlite3
 import numpy as np
 from multiprocessing import Pool
-
+from ConfigParser import SafeConfigParser
 
 
 sql_script = """
@@ -55,6 +55,26 @@ END TRANSACTION;
 r30 = np.deg2rad(30)
 lim = 30
 
+def kabsch(p, q):
+    c = np.dot(np.transpose(p), q)
+    v, s, w = np.linalg.svd(c)
+    d = (np.linalg.det(v) * np.linalg.det(w)) < 0.0
+
+    if d:
+        s[-1] = -s[-1]
+        v[:, -1] = -v[:, -1]
+    # create rotation matrix u
+    return  np.dot(v, w)
+
+
+def calc_rmsd(p,q):
+    # takes two cartesian geometries p and q
+    p -= sum(p)/len(p) #np.mean(p, axis=0)
+    q -= sum(q)/len(q) #np.mean(q, axis=0)
+    p = np.dot(p, kabsch(p, q))
+    return np.sqrt(np.sum((p-q)**2)/p.shape[0])
+
+
 
 def distance(xy1, xy2):
     return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
@@ -79,17 +99,23 @@ def getKabsch(geom, lim=lim):
 
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
-    dbFile = "no2db.db"
-    nbrDbFile = 'no2db_nbr.db'       # nbr db, not going to be used in any calculations
+    scf = SafeConfigParser()
+    scf.read('pesman.config')
+    dbFile = scf.get('DataBase', 'db')
+    nbrDbFile = scf.get('DataBase', 'Nbr')       # nbr db, not going to be used in any calculations
     dbExist = os.path.exists(dbFile)
-    if dbExist: os.remove(dbFile)    # remove old db if you want
+
+    if dbExist:    # remove old db if you want
+        os.remove(dbFile)
+        dbExist = False
     if os.path.exists(nbrDbFile):    # mandatoryly remove nbr db
         os.remove(nbrDbFile)
 
-    # try:
+
     with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
-        cur = con.cursor()                 #<--- rmove this if db exists
-        cur.executescript(sql_script)
+        if not dbExist:
+            cur = con.cursor()
+            cur.executescript(sql_script)
 
         curNbr = conNbr.cursor()
         curNbr.executescript(sql_nbrtable_commands)
@@ -140,5 +166,3 @@ if __name__ == "__main__":
         geomList[:,2] = np.rad2deg(geomList[:,2])
         np.savetxt("geomdata.txt", geomList[:,:3], fmt=['%d', '%.8f', '%.8f'], delimiter='\t')
 
-    # except Exception as e:
-    #     print("{}:{}".format(type(e).__name__, e))

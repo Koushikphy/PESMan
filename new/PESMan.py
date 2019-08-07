@@ -5,8 +5,9 @@ import shutil
 import tarfile
 import argparse
 import textwrap
-# import ConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
+from ConfigParser import SafeConfigParser
+from itertools import izip_longest as izl
 
 
 # Takes a folder path compresses it into a '.tar.bz2' file and remove the folder
@@ -141,12 +142,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    scf = SafeConfigParser()
+    scf.read('pesman.config')
+
+
+
     # Change these to your liking
-    dB = "no2db.db"
-    pesDir = "GeomData"
-    exportDir = "ExpDir"
-    runDir    = 'RunDir'
-    impDir    = "ImpDir"
+    dB = scf.get('DataBase', 'db')
+    pesDir = scf.get('Directories', 'GeomData')
+    exportDir = scf.get('Directories', 'ExpDir')
 
 
     if args.subcommand == 'export':
