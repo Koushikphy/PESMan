@@ -63,24 +63,37 @@ def distance(xy1, xy2):
     return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
 
 
-def kabsch(p, q):
-    c = np.dot(np.transpose(p), q)
-    v, s, w = np.linalg.svd(c)
-    d = (np.linalg.det(v) * np.linalg.det(w)) < 0.0
+# def kabsch(p, q):
+#     c = np.dot(np.transpose(p), q)
+#     v, s, w = np.linalg.svd(c)
+#     d = (np.linalg.det(v) * np.linalg.det(w)) < 0.0
 
-    if d:
-        s[-1] = -s[-1]
-        v[:, -1] = -v[:, -1]
-    # create rotation matrix u
-    return  np.dot(v, w)
+#     if d:
+#         s[-1] = -s[-1]
+#         v[:, -1] = -v[:, -1]
+#     # create rotation matrix u
+#     return  np.dot(v, w)
 
 
+# def calc_rmsd(p,q):
+#     p -= sum(p)/len(p) #np.mean(p, axis=0)
+#     q -= sum(q)/len(q) #np.mean(q, axis=0)
+#     p = np.dot(p, kabsch(p, q))
+#     return np.sqrt(np.sum((p-q)**2)/p.shape[0])
+
+
+
+# calculate rmsd distance after a translation and kabsch rotation
 def calc_rmsd(p,q):
-    p -= sum(p)/len(p) #np.mean(p, axis=0)
-    q -= sum(q)/len(q) #np.mean(q, axis=0)
-    p = np.dot(p, kabsch(p, q))
+    p -= np.mean(p, axis=0)                          # translation to the centroid
+    q -= np.mean(q, axis=0)
+    c = np.dot(np.transpose(p), q)                   # covariance matrix
+    v, _, w = np.linalg.svd(c)                       # rotaion matrix using singular value decomposition
+    if (np.linalg.det(v) * np.linalg.det(w)) < 0.0 : # proper sign of matrix for right-handed coordinate system
+        w[-1] = -w[-1]
+    r= np.dot(v, w)                                  # kabsch rotation matrix
+    p = np.dot(p, r)
     return np.sqrt(np.sum((p-q)**2)/p.shape[0])
-
 
 
 

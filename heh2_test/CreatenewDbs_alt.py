@@ -64,9 +64,7 @@ def distance(xy1, xy2):
 
 
 # calculate rmsd distance after a translation and kabsch rotation
-def calc_rmsd(p,q):
-    p -= np.mean(p, axis=0)                          # translation to the centroid
-    q -= np.mean(q, axis=0)
+def kabsch_rmsd(p,q):
     c = np.dot(np.transpose(p), q)                   # covariance matrix
     v, _, w = np.linalg.svd(c)                       # rotaion matrix using singular value decomposition
     if (np.linalg.det(v) * np.linalg.det(w)) < 0.0 : # proper sign of matrix for right-handed coordinate system
@@ -77,6 +75,10 @@ def calc_rmsd(p,q):
 
 
 
+def centroid(geom):
+    # return cartesian corordinate transalted to centroid
+    p = geomObj.getCart(*geom[1:])
+    return p-np.mean(p, axis=0)
 
 
 r50 = np.deg2rad(50)
@@ -86,18 +88,20 @@ lim = 30
 def getKabsch(geom, lim=lim):
     #accessing the full geomList from the global scope
     # WARNING !!! Do not use this approach in windows systems, windows doesn't uses fork to spawn child processes
-    vGeom = geomList[np.where( 
-                    (geomList[:,2]  >= geom[2]-4.5) &
-                    (geomList[:,2]  <= geom[2]+4.5) &
+    vGeomIndex =np.where( # return indexes where this satisfies
+                    (geomList[:,2]  >= geom[2]-2.5) &
+                    (geomList[:,2]  <= geom[2]+2.5) &
                     (geomList[:,3]  >= geom[3]-r50) &
                     (geomList[:,3]  <= geom[3]+r50) &
                     (geomList[:, 0] != geom[0])
-                    )]
-    cCart = geomObj.getCart(*geom[1:])
-    lkabsh = np.array([calc_rmsd(cCart, geomObj.getCart(*i[1:])) for i in vGeom])
+                    )[0]
+    geomIndex = np.searchsorted(geomList[:, 0], geom[0])
+
+
+    lkabsh = np.array([kabsch_rmsd(cart[geomIndex], cart[i]) for i in vGeomIndex])
     index = lkabsh.argsort()[:lim]
 
-    return geom[0], vGeom[index,0].astype(np.int64), lkabsh[index]
+    return geom[0],geomList[vGeomIndex][index,0], lkabsh[index]
 
 
 
@@ -148,7 +152,10 @@ if __name__ == "__main__":
         cur.execute('select id,sr,cr,gamma from geometry')
         geomList= np.array(cur.fetchall())
 
-        # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
+        # instead of creating the cartesian of each geometries and translating them for each inside the getkabsch
+        # we can just calculate the translated cartesian here one time, and use them in getkabsch
+        cart = np.apply_along_axis(centroid, 1 , geomList)
+        # # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
         pool = Pool()
         dat = pool.map(getKabsch, geomList)
         for res in dat:
