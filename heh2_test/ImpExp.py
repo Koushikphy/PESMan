@@ -39,7 +39,7 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
 
 
 
-def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath):
+def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo):
     # Main export function that exports a given number of jobs for a specified calcid type
     # collect the geomid that are exportable and the calc table id which will be used as their startid
     if calcTypeId > 1: # Mrci or nact export
@@ -66,6 +66,7 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
             expDirs = []
             for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1):
                 bName = ExportCalc(cur, dB, GeomId, calcTypeId,pesDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
+                print('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
                 expDirs.append(bName)
 
 
@@ -85,15 +86,16 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
 
             # save the python file that will run the jobs
             fPythonFile =   "{}/RunJob{}.py".format(ExpDir, exportId)
-            shutil.copy("RunJob.py", fPythonFile)
-            os.chmod(fPythonFile,0766)
+            createRunJob(molInfo, fPythonFile)
+            # shutil.copy("RunJob.py", fPythonFile)
+            # os.chmod(fPythonFile,0766)
             print("PESMan export successful: Id {} with {} job(s) exported".format(exportId, len(ExpGeomList)))
+            return ExpDir, exportId, expDirs
 
 
 
 def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb="",bIncludePath=False):
     # Get the exportable geometries and their start id for mulit jobs, returns 
-
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
         
@@ -102,7 +104,6 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
         calcRow = cur.fetchall()
         CalcGeomIds = set([geomId for geomId,_ in calcRow ])
         DictCalcId  = dict(calcRow)
-
         # set of geomIds that will be excluded from exporting
         ExcludeGeomIds = CalcGeomIds.copy()
 
@@ -124,7 +125,6 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
 
         DictStartId = {}
         GidListNew = []
-
         # in case some start geomids are provided. if gid is there but not sid then save start id as -1
         for g,s in itertools.izip_longest(GidList,SidList):
             if s==None: s=-1
@@ -133,7 +133,6 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
                 GidListNew.append(0)  
             else:
                 GidListNew.append(g)
-
 
 
         sql = "SELECT Id,Nbr FROM Geometry "
@@ -145,36 +144,6 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
             sql += "where "  + ConstDb
         cur.execute(sql)
 
-
-
-
-
-        # expGClist = []   # list that collects the exportable jobs info
-        # for GeomId, nbrList in cur:
-        #     if GeomId in ExcludeGeomIds: continue     # geometry already exist, skip
-
-        #     if GidListNew and DictStartId[GeomId]>=0: # negetive start id will go to main neighbour searching loop
-        #         NbrId = DictStartId[GeomId]           # i.e. 0 or positive startid given
-        #         if not NbrId :                        # 0 startid nothing to do here
-        #             expGClist.append([GeomId, 0])
-        #         elif NbrId in CalcGeomIds :           # positive start id, include if calculation is already done
-        #             expGClist.append([GeomId, DictCalcId[NbrId]])
-        #         continue
-
-        #     for depth, nId in enumerate(nbrList.split(), start=1): # main neighbour searching loop
-        #         NbrId = int(float(nId))                            # extra care for potential float string
-        #         if maxDepth and (depth>maxDepth): break            # neighbour crossed maximum allowed depth
-
-        #         if NbrId in CalcGeomIds:
-        #             expGClist.append([GeomId, DictCalcId[NbrId]])
-        #             break # got one match now don't search for any other neighbours
-
-        #     if len(expGClist)==jobs:     break         # got all the geometries needed
-
-
-        # new implementation
-        # so first go through the geometries directly from the cur iterator and check for export and 
-        # also store the potential miss as list, then , go through the lists again in the following checks
 
 
         expGClist = []   # list that collects the exportable jobs info
@@ -200,7 +169,6 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
                     return expGClist
                 continue
             fullGeomList.append([GeomId, nbrList])
-
         
         depth = maxDepth if maxDepth else len(fullGeomList[0][1])  #<--- handle 0 depth properly, this is poor
         exportedGeom = set([])
@@ -327,20 +295,6 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
 
 
 
-def parseIteration(file,gId, eId):
-    try:
-        with open(file) as f:
-            txt = f.read()
-        val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]
-        val = int(val)
-        if val>38:      # if more than 38 then this true will tell the main function to ignore
-            return True
-        with open('IterMultiJobs.dat', 'a') as f:
-            f.write('GeomI Id {} with Export ID {} has {} iterations.\n'.format(gId, eId, val))
-    except Exception as e:
-        print( "Can't parse multi iteration number. {}: {}".format(type(e).__name__, e))
-
-
 
 
 
@@ -374,16 +328,18 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
 
                     dirFull = ExportDir + "/" + calcDir
                     cFiles = glob(dirFull+"/*.calc")
-                    assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
+                    # assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
 
-                    print("Importing ...{}...".format(dirFull), end='')
+                    print("Importing ...{}... ".format(dirFull), end='')
                     ImportCalc(cur,dirFull,cFiles[0],DataDir, ignoreList=iGl, zipped=isZipped)
                     print("done")
 
                     cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(exportId,geomId))
                     importCount += 1
                     
-                    if isDel: shutil.rmtree(dirFull)
+                    if isDel: 
+                        print("Deleting directory {}".format(dirFull))
+                        shutil.rmtree(dirFull)
 
             sImpGeomIds =''# update what geometries are imported with this exportid, to be handled later
             cur.execute("UPDATE Exports SET ImpDT=datetime('now','localtime'), ImpGeomIds=? WHERE Id=?",(sImpGeomIds,exportId))
@@ -416,8 +372,8 @@ def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList, zipped):
     sResults = parseResult(fRes)
     if not os.path.exists(DestCalcDir):  os.makedirs(DestCalcDir)
 
-    tcalc = (dCalc["GeomId"],dCalc["CalcId"], DestCalcDir, dCalc["Aux"],sResults)
-    cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,AuxFiles,Results) VALUES (?, ?, ?, ?, ?)", tcalc) 
+    tcalc = (dCalc["GeomId"],dCalc["CalcId"], DestCalcDir, dCalc["StartGId"],sResults)
+    cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", tcalc)
 
     for iFile in glob("{}/*.*".format(CalcDir)):
         if os.path.splitext(iFile)[1] in ignoreList:  # copy all file except for ignore list
@@ -427,3 +383,101 @@ def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList, zipped):
     if zipped:
         shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
         shutil.rmtree(DestCalcDir)
+
+
+
+
+def createRunJob(molInfo, file):
+    
+    txt = '''#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+import os
+import subprocess
+from datetime import datetime
+
+
+def writeLog(fLog, msg, cont=False): # writes to the log file
+    if not cont : 
+        msg = '{{:.<90}}'.format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg)
+    else:
+        msg+='\\n'
+    fLog.write(msg)
+    fLog.flush()
+
+
+def runExportedCalcs(scrDir, proc, extra):
+    """ Run or continue a series of exported jobs."""
+
+    # first open export.dat file and collect information about exported jobs
+    with open("export.dat",'r') as f:
+        sExpDat = f.read().split("\\n",1)[1]
+
+    # obtain a list of incomplete jobs
+    # such jobs will not have corresponding .calc file, but .calc_ file
+    CalcDirs = sExpDat.split()
+    DirsDone = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc")]
+    DirsToDo = [d for d in CalcDirs if os.path.isfile(d+"/"+d+".calc_")]
+    mainDirectory = os.getcwd()
+
+    #    if len(CalcDirs) != len(DirsDone) + len(DirsToDo):
+    #       raise Exception("Some dirs in this export directory = " + os.getcwd() + " seem to not have .calc/.calc_ file.")
+
+    fLog = open("run.log","a")
+    if len(DirsDone):
+        txt = "Skipping already compelted job Dir: \\n" + '\\n'.join(DirsDone)
+        writeLog(fLog, txt, True)
+
+    # now execute each job
+    for RunDir in DirsToDo:
+        writeLog(fLog, "Running Job for "+RunDir)
+
+        fComBaseFile = RunDir + ".com"
+
+        os.chdir(RunDir)
+
+        exitcode = subprocess.call(["molpro", "-d", scrDir, "-W .", "-n", proc, fComBaseFile] + extra)
+        os.chdir(mainDirectory)
+
+        if exitcode == 0:
+            writeLog(fLog, "Job Successful.", True)
+            os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))    # rename .calc_ file so that it can be imported
+
+        else:
+            writeLog(fLog, "Job Failed.", True)
+
+    writeLog(fLog, "All Jobs Completed\\n")
+    writeLog(fLog, "."*70, True)
+    fLog.close()
+
+
+
+def dummyRun(scrDir, proc, extra):
+    """ Used only for debugging purpose"""
+
+    with open("export.dat",'r') as f:
+        sExpDat = f.read().split("\\n",1)[1]
+    DirsToDo = [d for d in sExpDat.split() if os.path.isfile(d+"/"+d+".calc_")]
+    for RunDir in DirsToDo:
+        fComBaseFile = RunDir + ".com"
+        with cd(RunDir):
+            with open("%s.wfu"%RunDir, "w") as f: f.write("Nothing to see here")
+            with open("%s.res"%RunDir, "w") as f: f.write("21 111 73")
+            os.rename( "%s.calc_"%RunDir, "%s.calc"%RunDir)
+
+
+
+
+if __name__ == '__main__':
+
+    scrDir = {}
+    proc   = str({})
+    extra  = {}
+
+    runExportedCalcs(scrDir, proc, extra)
+    # dummyRun(scrDir, proc, extra)
+
+'''.format(molInfo['scrdir'], molInfo['proc'], molInfo['extra'])
+    with open(file, 'w') as f:
+        f.write(txt)
+    os.chmod(file,0766)

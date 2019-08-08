@@ -4,6 +4,8 @@ import sqlite3
 import numpy as np
 from geometry import geomObj
 from multiprocessing import Pool
+from ConfigParser import SafeConfigParser
+
 
 
 
@@ -82,29 +84,6 @@ def calc_rmsd(p,q):
 
 
 
-def geom_tags(geom):
-    """ generate tags for geometry """
-    theta = geom[2]
-    dat = jac2cart(geom)
-    # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
-    # so dists are distances of fh, hh, fh
-    tmpdat = dat[[1, 2, 0]] - dat
-    dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
-
-    path    = np.any(dists < (0.6/0.529177209)) #0.6 bohrs
-    channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
-    linear  = np.abs(theta) < 1.0e-10
-
-    l = []
-    if linear:   # linear position
-        l.append("linear")
-        if channel:
-            l.append("Finside")
-        else:
-            l.append("Foutside")
-    if path:
-        l.append("path")
-    return ":".join(l)
 
 r50 = np.deg2rad(50)
 lim = 30
@@ -130,17 +109,22 @@ def getKabsch(geom, lim=lim):
 
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
-    dbFile = "heh2+db.db"
-    nbrDbFile = 'heh2+db_nbr.db'       # nbr db, not going to be used in any calculations
+    scf = SafeConfigParser()
+    scf.read('pesman.config')
+    dbFile = scf.get('DataBase', 'db')
+    nbrDbFile = scf.get('DataBase', 'nbr')       # nbr db, not going to be used in any calculations
     dbExist = os.path.exists(dbFile)
-    if dbExist: os.remove(dbFile)    # remove old db if you want
+    if dbExist:    # remove old db if you want
+        os.remove(dbFile)
+        dbExist = False
     if os.path.exists(nbrDbFile):    # mandatoryly remove nbr db
         os.remove(nbrDbFile)
 
-    # try:
+
     with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
-        cur = con.cursor()                 #<--- rmove this if db exists
-        cur.executescript(sql_script)
+        if not dbExist:
+            cur = con.cursor()
+            cur.executescript(sql_script)
 
         curNbr = conNbr.cursor()
         curNbr.executescript(sql_nbrtable_commands)

@@ -23,6 +23,29 @@ def jac2cart(geom):
     return np.array([[f1y,f1z], [h2y,h2z], [h3y,h3z] ])
 
 
+def geom_tags(geom):
+    """ generate tags for geometry """
+    theta = geom[2]
+    dat = jac2cart(geom)
+    # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
+    # so dists are distances of fh, hh, fh
+    tmpdat = dat[[1, 2, 0]] - dat
+    dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
+
+    path    = np.any(dists < (0.6/0.529177209)) #0.6 bohrs
+    channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
+    linear  = np.abs(theta) < 1.0e-10
+
+    l = []
+    if linear:   # linear position
+        l.append("linear")
+        if channel:
+            l.append("Finside")
+        else:
+            l.append("Foutside")
+    if path:
+        l.append("path")
+    return ":".join(l)
 
 
 
@@ -132,30 +155,6 @@ class Scattering(object):
         gamma = np.arctan2(y,x)
         return (rs, rc, gamma)
 
-    def geom_tags(self, geom):
-        """ generate tags for geometry """
-        rho, theta, phi = geom
-        dat = self.hyperToCart(*geom)
-        # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
-        # so dists are distances of fh, hh, fh
-        tmpdat = dat[[1, 2, 0]] - dat
-        dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
-    
-        path    = np.any(dists < (0.6/0.529177209)) #0.6 bohrs
-        channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
-        linear  = np.abs(theta) < 1.0e-10
-    
-        l = []
-        if linear:   # linear position
-            l.append("linear")
-            if channel:
-                l.append("Finside")
-            else:
-                l.append("Foutside")
-        if path:
-            l.append("path")
-        return ":".join(l)
-
     def hyperToCart(self, rho, theta, phi):
         # create an cartesian corodinate from hyper spherical coordiante
         rs, rc, gamma = self.toJacobi(rho, theta, phi)
@@ -163,8 +162,6 @@ class Scattering(object):
         p2 = [0,0.0, -rs/2.0]
         p3 = [0,0.0, rs/2.0 ]
         return np.array([p1, p2, p3])/ang # return in angstrom
-
-
 
 
 
@@ -212,11 +209,7 @@ class Jacobi(object):
             l.append("path")
         return ":".join(l)
 
-aq1   = [0.0000000, 0.6167049, 0.0000000, 0.4760237,-0.2885117, 0.0000000,-0.4760237,-0.2885117, 0.0000000] 
-aq2   = [0.8122235, 0.0000000, 0.0000000,-0.3799808,-0.1605027, 0.0000000,-0.3799808, 0.1605027, 0.0000000]
-freq  = [759.61,1687.70 ]
-masses  = [14.006700, 15.999400, 15.999400]
-atoms = ["N", "O", "O"]
-equigeom = [[ -0.0000000000, 0.0073802030,0.0000000000], [1.1045635392, 0.4739443250, 0.0000000000], [-1.1045635392, 0.4739443250, 0.0000000000]]
+# wrong masses
+atoms = ["H", "H", "He"]
 
-geomObj = Spectroscopic(atoms, masses, freq, aq1, aq2, equigeom)
+geomObj = Jacobi(atoms)

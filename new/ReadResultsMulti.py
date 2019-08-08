@@ -9,7 +9,7 @@ def main(db):
         CalcRow = [[i[0]]+i[1].split() for i in cur.fetchall()]
         CalcRow = np.array(CalcRow, dtype=np.float64)
 
-        cur.execute("SELECT id,rho,phi from Geometry ")
+        cur.execute("SELECT id,sr, cr, gamma from Geometry ")
         GeomRow = np.array(cur.fetchall())
 
     # This is the list of indexes in geomrow corresponding to the id in calcrow
@@ -19,12 +19,12 @@ def main(db):
     # sort out jumbling of rho, phi values, also remove any duplicates in process
     resArr = np.unique(resArr, axis=0)
 
-    ResDir = "Result_files_Multi"
+    ResDir = "Result_files_Multi"  # make sure this directory exists
     gRes = open(ResDir+'/Enr.dat', "wb")
-    rhoList = np.unique(resArr[:,0])
+    rhoList = np.unique(resArr[:,1])
 
     for rho in rhoList:
-        rhoBlock = resArr[resArr[:,0]==rho]
+        rhoBlock = resArr[resArr[:,1]==rho]
         sRes = "{}/Enr_rho-{}.dat".format(ResDir, rho)
         np.savetxt( gRes, rhoBlock ,delimiter="\t", fmt=str("%.7f")) #<-- database has upto 7 decimal results
         np.savetxt( sRes, rhoBlock ,delimiter="\t", fmt=str("%.7f")) 

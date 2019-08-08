@@ -5,8 +5,9 @@ import shutil
 import tarfile
 import argparse
 import textwrap
-# import ConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
+from ConfigParser import SafeConfigParser
+from itertools import izip_longest as izl
 
 
 # Takes a folder path compresses it into a '.tar.bz2' file and remove the folder
@@ -141,12 +142,20 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    scf = SafeConfigParser()
+    scf.read('pesman.config')
+
+
+
     # Change these to your liking
-    dB = "heh2+db.db"
-    pesDir = "GeomData"
-    exportDir = "ExpDir"
-    runDir    = 'RunDir'
-    impDir    = "ImpDir"
+    dB = scf.get('DataBase', 'db')
+    pesDir = scf.get('Directories', 'pesdir')
+    exportDir = scf.get('Directories', 'expdir')
+    molInfo = dict(scf.items('molInfo'))
+    try:
+        molInfo['extra'] = molInfo['extra'].split(',')
+    except KeyError:
+        molInfo['extra'] = []
 
 
     if args.subcommand == 'export':
@@ -176,7 +185,7 @@ if __name__ == '__main__':
         Include Path    : {}
         """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, inclp))
         print(txt)
-        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp)
+        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo)
 
 
     # Execute an import command
@@ -194,7 +203,7 @@ if __name__ == '__main__':
         Delete after import : {}
         Archive directory   : {}
         """.format(dB, pesDir, iGl, isDel, isZipped))
-
+        print(txt)
         for expFile in args.ExpFile: # accepts multiple export files
             ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped)
 

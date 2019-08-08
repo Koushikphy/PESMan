@@ -149,11 +149,11 @@ if __name__ == '__main__':
 
     # Change these to your liking
     dB = scf.get('DataBase', 'db')
-    pesDir = scf.get('Directories', 'geomgata')
+    pesDir = scf.get('Directories', 'pesdir')
     exportDir = scf.get('Directories', 'expdir')
-    molInfo = scf.items('molInfo')
+    molInfo = dict(scf.items('molInfo'))
     try:
-        molInfo['extra'] = molInfo['extra'].split()
+        molInfo['extra'] = molInfo['extra'].split(',')
     except KeyError:
         molInfo['extra'] = []
 
@@ -203,7 +203,7 @@ if __name__ == '__main__':
         Delete after import : {}
         Archive directory   : {}
         """.format(dB, pesDir, iGl, isDel, isZipped))
-
+        print(txt)
         for expFile in args.ExpFile: # accepts multiple export files
             ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped)
 

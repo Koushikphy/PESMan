@@ -2,16 +2,20 @@
 import os
 import sqlite3
 import numpy as np
+from geometry import geomObj
 from multiprocessing import Pool
 from ConfigParser import SafeConfigParser
+
+
 
 
 sql_script = """
 BEGIN TRANSACTION;
 CREATE TABLE Geometry(
 Id INTEGER PRIMARY KEY,
-rho REAL,
-phi REAL,
+sr REAL,
+cr REAL,
+gamma REAL,
 Tags TEXT,
 Nbr TEXT);
 CREATE TABLE CalcInfo(
@@ -52,8 +56,12 @@ END TRANSACTION;
 
 
 
-r30 = np.deg2rad(30)
-lim = 30
+
+
+
+def distance(xy1, xy2):
+    return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
+
 
 def kabsch(p, q):
     c = np.dot(np.transpose(p), q)
@@ -68,7 +76,6 @@ def kabsch(p, q):
 
 
 def calc_rmsd(p,q):
-    # takes two cartesian geometries p and q
     p -= sum(p)/len(p) #np.mean(p, axis=0)
     q -= sum(q)/len(q) #np.mean(q, axis=0)
     p = np.dot(p, kabsch(p, q))
@@ -76,21 +83,20 @@ def calc_rmsd(p,q):
 
 
 
-def distance(xy1, xy2):
-    return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
 
 
 def getKabsch(geom, lim=lim):
     #accessing the full geomList from the global scope
     # WARNING !!! Do not use this approach in windows systems, windows doesn't uses fork to spawn child processes
     vGeom = geomList[np.where( 
-                    (geomList[:,1]  >= geom[1]-4.5) &
-                    (geomList[:,1]  <= geom[1]+4.5) &
-                    (geomList[:,2]  >= geom[2]-r30) &
-                    (geomList[:,2]  <= geom[2]+r03) &
+                    (geomList[:,2]  >= geom[2]-4.5) &
+                    (geomList[:,2]  <= geom[2]+4.5) &
+                    (geomList[:,3]  >= geom[3]-r50) &
+                    (geomList[:,3]  <= geom[3]+r50) &
                     (geomList[:, 0] != geom[0])
                     )]
-    lkabsh = np.array([distance(geom[3:], i[3:])  for i in vGeom])
+    cCart = geomObj.getCart(*geom[1:])
+    lkabsh = np.array([calc_rmsd(cCart, geomObj.getCart(*i[1:])) for i in vGeom])
     index = lkabsh.argsort()[:lim]
 
     return geom[0], vGeom[index,0].astype(np.int64), lkabsh[index]
@@ -102,9 +108,8 @@ if __name__ == "__main__":
     scf = SafeConfigParser()
     scf.read('pesman.config')
     dbFile = scf.get('DataBase', 'db')
-    nbrDbFile = scf.get('DataBase', 'Nbr')       # nbr db, not going to be used in any calculations
+    nbrDbFile = scf.get('DataBase', 'nbr')       # nbr db, not going to be used in any calculations
     dbExist = os.path.exists(dbFile)
-
     if dbExist:    # remove old db if you want
         os.remove(dbFile)
         dbExist = False
@@ -120,36 +125,30 @@ if __name__ == "__main__":
         curNbr = conNbr.cursor()
         curNbr.executescript(sql_nbrtable_commands)
 
-        newGeomList = np.dstack(np.mgrid[0.1:5.0:50j,0:180:181j]).reshape(-1,2)
-        newGeomList = np.vstack([[0,0], newGeomList])
-        newGeomList[:,1] = np.deg2rad(newGeomList[:,1])
-
-
+        newGeomList = np.stack( np.mgrid[2.0:2.0:1j, 0:10:101j, 0:90:19j], axis=3).reshape(-1,3)
+        newGeomList[:,2] = np.deg2rad(newGeomList[:,2])
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
-        if dbExist: 
-            cur.execute('select rho,phi from geometry')
-            oldTable = np.array(cur.fetchall())
-            if oldTable.size:
-                dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
-                if dupInd.size:
-                    print("%s duplicates found in new list of geometries"%dupInd.size)
-                    newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
+        # if dbExist: 
+        #     cur.execute('select rho,phi from geometry')
+        #     oldTable = np.array(cur.fetchall())
+        #     if oldTable.size:
+        #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
+        #         if dupInd.size:
+        #             print("%s duplicates found in new list of geometries"%dupInd.size)
+        #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
 
 
 
         assert newGeomList.size, "No new geometries to add"
         # # create any tags if necessary, use from geomObj are other functions whatever convenient
-        # # tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
+        tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
+        newGeomList = np.column_stack([newGeomList, tags])
         # # insert the geometries and tags into database
-        cur.executemany('INSERT INTO Geometry (rho,phi) VALUES (?, ? )', newGeomList)
+        cur.executemany('INSERT INTO Geometry (sr,cr,gamma,Tags) VALUES (?, ?, ?, ? )', newGeomList)
 
         # #get the updated table with ids
-        cur.execute('select id,rho,phi from geometry')
+        cur.execute('select id,sr,cr,gamma from geometry')
         geomList= np.array(cur.fetchall())
-        x = geomList[:,1]*np.cos(geomList[:,2])
-        y = geomList[:,1]*np.sin(geomList[:,2])
-        geomList = np.column_stack([ geomList, x, y])
-
 
         # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
         pool = Pool()
@@ -163,6 +162,8 @@ if __name__ == "__main__":
             curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
 
         # save the geomlist in a datafile
-        geomList[:,2] = np.rad2deg(geomList[:,2])
-        np.savetxt("geomdata.txt", geomList[:,:3], fmt=['%d', '%.8f', '%.8f'], delimiter='\t')
+        geomList[:,3] = np.rad2deg(geomList[:,3])
+        np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')
 
+    # except Exception as e:
+    #     print("{}:{}".format(type(e).__name__, e))
