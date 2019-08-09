@@ -37,43 +37,44 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
 
 
 
-def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo):
+def ExportNearNbrJobs(dB, calcId, jobs, exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo):
     # Main export function that exports a given number of jobs for a specified calcid type
     # collect the geomid that are exportable and the calc table id which will be used as their startid
-    if calcTypeId > 1: # Mrci or nact export
-        ExpGeomList = GetExpMrciNactJobs(dB,calcTypeId, jobs, constDb)
+    if calcId > 1: # Mrci or nact export
+        ExpGeomList = GetExpMrciNactJobs(dB,calcId, jobs, constDb)
     else:
-        ExpGeomList = GetExpGeomNearNbr(dB,calcTypeId, gidList, sidList, jobs, depth, constDb, includePath)
+        ExpGeomList = GetExpGeomNearNbr(dB,calcId, gidList, sidList, jobs, depth, constDb, includePath)
 
 
     # The context manager prevents the database from commiting in case of error, use try-except for further control
     with sqlite3.connect(dB) as con:
             con.row_factory=sqlite3.Row
             cur = con.cursor()
-            cur.execute('SELECT * from CalcInfo WHERE Id=?',(calcTypeId,))
+            cur.execute('SELECT * from CalcInfo WHERE Id=?',(calcId,))
             InfoRow = cur.fetchone()
-            assert InfoRow, "No Info found for CalcType={} found in data base".format(calcTypeId)
+            assert InfoRow, "No Info found for CalcId={} found in data base".format(calcId)
             # insert into database one row and use the id as export id
-            cur.execute("INSERT INTO Exports (CalcType) VALUES (?)", (calcTypeId,))
+            cur.execute("INSERT INTO Exports (CalcId) VALUES (?)", (calcId,))
             exportId = cur.lastrowid
 
-            ExpDir = "{}/Export{}-{}{}".format(exportDir, exportId, InfoRow["type"], calcTypeId)
-            if os.path.exists(ExpDir): # remove the export directory if already exists, may have created from some failed export.
+            ExpDir = "{}/Export{}-{}{}".format(exportDir, exportId, InfoRow["type"], calcId)
+            # remove the export directory if already exists, may have created from some failed export. should'nt happened
+            if os.path.exists(ExpDir): 
                 shutil.rmtree(ExpDir)
             os.makedirs(ExpDir)
 
             expDirs = []
             for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1):
                 print('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
-                bName = ExportCalc(cur, dB, GeomId, calcTypeId,pesDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
+                bName = ExportCalc(cur, dB, GeomId, calcId,pesDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
                 expDirs.append(bName)
 
 
             # update the export table and expcalc tables with the exported jobs
-            cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=datetime('now','localtime') WHERE Id=?", (len(expDirs),exportId))
+            cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')) WHERE Id=?", (len(expDirs),exportId))
 
-            lExpCalc = [[exportId, ExpGeomList[i][0], expDirs[i]] for i in range(len(expDirs))]
-            cur.executemany("INSERT INTO ExpCalc (ExpId,GeomId,CalcDir) VALUES (?,?,?)",lExpCalc)
+            lExpCalc = [[exportId,calcId, ExpGeomList[i][0]] for i in range(len(expDirs))]
+            cur.executemany("INSERT INTO ExpCalc (ExpId,CalcId,GeomId) VALUES (?,?,?)",lExpCalc)
 
             # save the export id and exported directories in export.dat file
             fExportDat = ExpDir + "/export.dat"
@@ -93,29 +94,32 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
 
 
 
-def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb="",bIncludePath=False):
+def GetExpGeomNearNbr(dB,calcId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb="",inclPath=False):
     # Get the exportable geometries and their start id for mulit jobs, returns 
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
         
         # get jobs that is already done
-        cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(CalcTypeId,))
+        cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(calcId,))
         calcRow = cur.fetchall()
         CalcGeomIds = set([geomId for geomId,_ in calcRow ])
         DictCalcId  = dict(calcRow)
         # set of geomIds that will be excluded from exporting
         ExcludeGeomIds = CalcGeomIds.copy()
 
-        if not bIncludePath: # include pathological points
+        if not inclPath: # don't pathological points
             cur.execute("SELECT Id FROM Geometry WHERE tags LIKE '%path%'")
             ExcludeGeomIds.update([i[0] for i in cur.fetchall()])
 
         # collect jobs that is exported but not imported, they are mot exportable
-        cur.execute("SELECT ID FROM Exports WHERE Status=0 and CalcType=?",(CalcTypeId,))
-        ids = cur.fetchall()
-        for expId in ids:
-            cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple,returns a list of tuples, onelist for one filed i.e. GeomId
-            ExcludeGeomIds.update([i[0] for i in cur.fetchall()]) 
+        # cur.execute("SELECT ID FROM Exports WHERE Status=0 and CalcId=?",(calcId,))
+        # ids = cur.fetchall()
+        # for expId in ids:
+        #     cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple,returns a list of tuples, onelist for one filed i.e. GeomId
+        #     ExcludeGeomIds.update([i[0] for i in cur.fetchall()]) 
+        
+        cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
+        ExcludeGeomIds.update([i[0] for i in cur])
 
     #--------------------------------------------------------------------------------
         # lPrblmGeomIds = []
@@ -142,7 +146,16 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
         elif not GidListNew and ConstDb:
             sql += "where "  + ConstDb
         cur.execute(sql)
+        print(sql)
 
+        cond = []
+        if GidListNew:   cond.append( 'id in (' + ",".join(map(str, GidListNew)) + ')')  #include gidlist
+        if ConstDb:      cond.append( '(' + ConstDb + ')')                               #include constraint
+        if not inclPath: cond.append( "tags NOT LIKE '%path%'")                          #exclude pathological
+
+        cond = ' where ' + ' and '.join(cond) if cond else ''
+        sql = 'SELECT Id,Nbr FROM Geometry' + cond
+        print(sql)
 
 
         expGClist = []   # list that collects the exportable jobs info
@@ -192,22 +205,24 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
 
 
 
-def GetExpMrciNactJobs(dB,CalcTypeId,jobs=50,ConstDb=""):
+def GetExpMrciNactJobs(dB,calcId,jobs=50,ConstDb=""):
 
 
     with sqlite3.connect(dB) as con:
             cur = con.cursor()
 
-            cur.execute("SELECT GeomId FROM Calc WHERE CalcId=?",(CalcTypeId,))
+            cur.execute("SELECT GeomId FROM Calc WHERE CalcId=?",(calcId,))
             CalcGeomIds = set(cur.fetchall())
             ExcludeGeomIds = CalcGeomIds.copy()  # jobs that is already done.
 
-            cur.execute("SELECT ID FROM Exports WHERE Status=0 and CalcType=?",(CalcTypeId,))
-            ids = cur.fetchall()
-            for expId in ids:
-                cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple returns a list of tuples, onelist for one filed i.e. GeomId
-                ExcludeGeomIds.update([i[0] for i in cur.fetchall()]) 
+            # cur.execute("SELECT ID FROM Exports WHERE Status=0 and CalcId=?",(calcId,))
+            # ids = cur.fetchall()
+            # for expId in ids:
+            #     cur.execute("SELECT GeomId FROM ExpCalc WHERE ExpId=?",expId) #<-- expid already a tuple returns a list of tuples, onelist for one filed i.e. GeomId
+            #     ExcludeGeomIds.update([i[0] for i in cur.fetchall()]) 
 
+            cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
+            ExcludeGeomIds.update([i[0] for i in cur])
         #--------------------------------------------------------------------------------
             # lPrblmGeomIds = []
             # ExcludeGeomIds.update(lPrblmGeomIds)
@@ -235,10 +250,10 @@ def GetExpMrciNactJobs(dB,CalcTypeId,jobs=50,ConstDb=""):
 
 
 
-def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate="",StartId=0,BaseSuffix=""):
+def ExportCalc(cur, Db,GeomId,calcId,DataDir,ExpDir, InfoRow, ComTemplate="",StartId=0,BaseSuffix=""):
 
 
-    # GeomId and CalcTypeId check
+    # GeomId and CalcId check
     cur.execute('SELECT * from Geometry WHERE Id=?',(GeomId,))
     GeomRow = cur.fetchone()
 
@@ -261,7 +276,7 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
 
 
     # decide basename needed for generated files and create the main export directory
-    BaseName = "{}{}-geom{}-".format(InfoRow["Type"], CalcTypeId, GeomId) + BaseSuffix
+    BaseName = "{}{}-geom{}-".format(InfoRow["Type"], calcId, GeomId) + BaseSuffix
     ExportDir = ExpDir + "/" + BaseName
     os.makedirs(ExportDir)
 
@@ -271,7 +286,7 @@ def ExportCalc(cur, Db,GeomId,CalcTypeId,DataDir,ExpDir, InfoRow, ComTemplate=""
     # this should be renamed to .calc upon successful run
     fCalc = ExportDir + "/" + BaseName + ".calc_"  # <-- extra underscore
     fXYZ  = ExportDir + "/" + BaseName + ".xyz"
-    genCalcFile(CalcTypeId,GeomId,InfoRow["Type"],BaseName,StartGId,fCalc)
+    genCalcFile(CalcId,GeomId,InfoRow["Type"],BaseName,StartGId,fCalc)
     geomObj.createXYZfile(GeomRow, filename = fXYZ)  #< -- geometry file is created from outside
 
 
@@ -342,7 +357,7 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
                         shutil.rmtree(dirFull)
 
             sImpGeomIds =''# update what geometries are imported with this exportid, to be handled later
-            cur.execute("UPDATE Exports SET ImpDT=datetime('now','localtime'), ImpGeomIds=? WHERE Id=?",(sImpGeomIds,exportId))
+            cur.execute("UPDATE Exports SET ImpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')), ImpGeomIds=? WHERE Id=?",(sImpGeomIds,exportId))
 
 
             cur.execute("SELECT count(*) FROM ExpCalc WHERE ExpId=?",(exportId,))
