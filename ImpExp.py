@@ -53,7 +53,8 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
             cur.execute('SELECT * from CalcInfo WHERE Id=?',(calcTypeId,))
             InfoRow = cur.fetchone()
             assert InfoRow, "No Info found for CalcType={} found in data base".format(calcTypeId)
-            cur.execute("INSERT INTO Exports (Type,CalcType) VALUES (?,?)", (0,calcTypeId))
+            # insert into database one row and use the id as export id
+            cur.execute("INSERT INTO Exports (CalcType) VALUES (?)", (calcTypeId,))
             exportId = cur.lastrowid
 
             ExpDir = "{}/Export{}-{}{}".format(exportDir, exportId, InfoRow["type"], calcTypeId)
@@ -63,13 +64,13 @@ def ExportNearNbrJobs(dB, calcTypeId, jobs, exportDir,pesDir, templ, gidList, si
 
             expDirs = []
             for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1):
-                bName = ExportCalc(cur, dB, GeomId, calcTypeId,pesDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
                 print('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
+                bName = ExportCalc(cur, dB, GeomId, calcTypeId,pesDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
                 expDirs.append(bName)
 
 
-            # udate the export table and expcalc tables with the exported jobs
-            cur.execute("UPDATE Exports SET NumCalc=?, ExpDir=?, ExpDT=datetime('now','localtime') WHERE Id=?", (len(expDirs),ExpDir,exportId))
+            # update the export table and expcalc tables with the exported jobs
+            cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=datetime('now','localtime') WHERE Id=?", (len(expDirs),exportId))
 
             lExpCalc = [[exportId, ExpGeomList[i][0], expDirs[i]] for i in range(len(expDirs))]
             cur.executemany("INSERT INTO ExpCalc (ExpId,GeomId,CalcDir) VALUES (?,?,?)",lExpCalc)
@@ -168,7 +169,8 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
                 continue
             fullGeomList.append([GeomId, nbrList])
         
-        depth = maxDepth if maxDepth else len(fullGeomList[0][1])  #<--- handle 0 depth properly, this is poor
+        # handle 0 depth properly, this is poor
+        depth = maxDepth if maxDepth else len(fullGeomList[0][1]) if fullGeomList else 0  
         exportedGeom = set([])
         for d in range(1,depth):                                   # depth loop starting from 1 to end, 
             for GeomId, nbrList in fullGeomList:
