@@ -12,7 +12,7 @@ from ReadResultsMulti import main as readResult
 # provide user specific options
 calcId = 1
 depth = 0
-maxJobs = 2
+maxJobs = 5
 raedResultsStep=25
 constraint = None
 includePath = False

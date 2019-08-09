@@ -19,7 +19,7 @@ def main(db):
     # sort out jumbling of rho, phi values, also remove any duplicates in process
     resArr = np.unique(resArr, axis=0)
 
-    ResDir = "Result_files_Multi"  # make sure this directory exists
+    ResDir = "Result_files_Multi"      # make sure this directory exists
     gRes = open(ResDir+'/Enr.dat', "wb")
     rhoList = np.unique(resArr[:,1])
 

@@ -1,12 +1,10 @@
 from __future__ import print_function
 import re
 import os
-import sys
 import shutil
 import tarfile
 import sqlite3 
-import itertools
-import numpy as np 
+from itertools import izip_longest
 from glob import glob
 from geometry import geomObj
 # initiate the geometry object inside the geometry file  and call the methods from there
@@ -126,7 +124,7 @@ def GetExpGeomNearNbr(dB,CalcTypeId,GidList=[],SidList=[],jobs=1,maxDepth=0,Cons
         DictStartId = {}
         GidListNew = []
         # in case some start geomids are provided. if gid is there but not sid then save start id as -1
-        for g,s in itertools.izip_longest(GidList,SidList):
+        for g,s in izip_longest(GidList,SidList):
             if s==None: s=-1
             DictStartId[g] = s
             if g in ExcludeGeomIds:

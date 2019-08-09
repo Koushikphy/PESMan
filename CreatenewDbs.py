@@ -7,7 +7,7 @@ from multiprocessing import Pool
 from ConfigParser import SafeConfigParser
 
 
-
+# Primarily written for a Jacobi system, modify likewise
 
 sql_script = """
 BEGIN TRANSACTION;
@@ -56,14 +56,12 @@ END TRANSACTION;
 
 
 
-
-
-
+# a simple distance of atwo points on 2D
 def distance(xy1, xy2):
     return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
 
 
-# calculate rmsd distance after a translation and kabsch rotation
+# calculate RMSD distance after kabsch rotation
 def kabsch_rmsd(p,q):
     c = np.dot(np.transpose(p), q)                   # covariance matrix
     v, _, w = np.linalg.svd(c)                       # rotaion matrix using singular value decomposition
@@ -75,8 +73,8 @@ def kabsch_rmsd(p,q):
 
 
 
+# return cartesian corordinate with their centroid transalted to origin
 def centroid(geom):
-    # return cartesian corordinate transalted to centroid
     p = geomObj.getCart(*geom[1:])
     return p-np.mean(p, axis=0)
 
@@ -85,37 +83,47 @@ r50 = np.deg2rad(50)
 lim = 30
 
 
+# Calculate list of geometries in ascending order of their RMSD from the `geom`
 def getKabsch(geom, lim=lim):
-    #accessing the full geomList from the global scope
-    # WARNING !!! Do not use this approach in windows systems, windows doesn't uses fork to spawn child processes
-    vGeomIndex =np.where( # return indexes where this satisfies
+    #accessing the full geomList and cartesians from the global scope
+    # WARNING !!! Do not use this approach with multiprocessing in windows systems
+    vGeomIndex =np.where(                               # return indexes where the geometries satisfies the condition
                     (geomList[:,2]  >= geom[2]-2.5) &
                     (geomList[:,2]  <= geom[2]+2.5) &
                     (geomList[:,3]  >= geom[3]-r50) &
                     (geomList[:,3]  <= geom[3]+r50) &
                     (geomList[:, 0] != geom[0])
                     )[0]
+    # get the index of current geometries, geomids are sorted (?)
     geomIndex = np.searchsorted(geomList[:, 0], geom[0])
+    
+    # now calculate the rmsd
+    lkabsch = np.array([kabsch_rmsd(cart[geomIndex], cart[i]) for i in vGeomIndex])
+    index = lkabsch.argsort()[:lim] # get sorted index of first `lim` element
+    # return current geomid, geomid of nearest neighbour and their distances
+    return geom[0],geomList[vGeomIndex][index,0].astype(np.int64), lkabsch[index]
 
 
-    lkabsh = np.array([kabsch_rmsd(cart[geomIndex], cart[i]) for i in vGeomIndex])
-    index = lkabsh.argsort()[:lim]
 
-    return geom[0],geomList[vGeomIndex][index,0], lkabsh[index]
+
+
 
 
 
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
+    # read database names from (hardcoded here) `pesman.config`
     scf = SafeConfigParser()
     scf.read('pesman.config')
     dbFile = scf.get('DataBase', 'db')
-    nbrDbFile = scf.get('DataBase', 'nbr')       # nbr db, not going to be used in any calculations
+    # nbrdb only to store distances, not going to be used in any calculations
+    nbrDbFile = scf.get('DataBase', 'nbr')
     dbExist = os.path.exists(dbFile)
+
     if dbExist:    # remove old db if you want
         os.remove(dbFile)
         dbExist = False
-    if os.path.exists(nbrDbFile):    # mandatoryly remove nbr db
+    if os.path.exists(nbrDbFile):    # mandatorily remove nbr db
         os.remove(nbrDbFile)
 
 
@@ -127,6 +135,7 @@ if __name__ == "__main__":
         curNbr = conNbr.cursor()
         curNbr.executescript(sql_nbrtable_commands)
 
+        # create the geometry list here
         newGeomList = np.stack( np.mgrid[2.0:2.0:1j, 0:10:101j, 0:90:19j], axis=3).reshape(-1,3)
         newGeomList[:,2] = np.deg2rad(newGeomList[:,2])
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
@@ -142,26 +151,22 @@ if __name__ == "__main__":
 
 
         assert newGeomList.size, "No new geometries to add"
-        # # create any tags if necessary, use from geomObj are other functions whatever convenient
+        # create any tags if necessary
         tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
         newGeomList = np.column_stack([newGeomList, tags])
         # # insert the geometries and tags into database
         cur.executemany('INSERT INTO Geometry (sr,cr,gamma,Tags) VALUES (?, ?, ?, ? )', newGeomList)
 
-        # #get the updated table with ids
+        #get the updated table with ids
         cur.execute('select id,sr,cr,gamma from geometry')
         geomList= np.array(cur.fetchall())
 
-        # instead of creating the cartesian of each geometries and translating them for each inside the getkabsch
-        # we can just calculate the translated cartesian here one time, and use them in getkabsch
+        # Create the cartesian geometries, with centroid translated to origin
         cart = np.apply_along_axis(centroid, 1 , geomList)
         # # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
         pool = Pool()
         dat = pool.map(getKabsch, geomList)
-        for res in dat:
-            gId = res[0]
-            indexes = res[1]
-            distances = res[2]
+        for (gId, indexes, distances) in dat:
 
             cur.execute('UPDATE Geometry SET Nbr = ? where Id=?', (' '.join(map(str,indexes)), gId))
             curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
@@ -169,6 +174,3 @@ if __name__ == "__main__":
         # save the geomlist in a datafile
         geomList[:,3] = np.rad2deg(geomList[:,3])
         np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')
-
-    # except Exception as e:
-    #     print("{}:{}".format(type(e).__name__, e))
