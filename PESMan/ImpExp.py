@@ -3,8 +3,7 @@ import re
 import os
 import shutil
 import tarfile
-import sqlite3 
-from itertools import izip_longest
+import sqlite3
 from glob import glob
 from geometry import geomObj
 # initiate the geometry object inside the geometry file  and call the methods from there
@@ -71,10 +70,11 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir,pesDir, templ, gidList, sidLis
 
 
             # update the export table and expcalc tables with the exported jobs
-            cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')) WHERE Id=?", (len(expDirs),exportId))
+            expGeomIds = [i for i,_ in ExpGeomList]
+            cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')), ExpGeomIds=? WHERE Id=?", (len(expDirs), ' '.join(map(str,expGeomIds)), exportId))
 
-            lExpCalc = [[exportId,calcId, ExpGeomList[i][0]] for i in range(len(expDirs))]
-            cur.executemany("INSERT INTO ExpCalc (ExpId,CalcId,GeomId) VALUES (?,?,?)",lExpCalc)
+            lExpCalc = [[exportId,calcId, i,j] for i,j in zip(expGeomIds, expDirs)]
+            cur.executemany("INSERT INTO ExpCalc (ExpId,CalcId,GeomId,CalcDir) VALUES (?,?,?,?)",lExpCalc)
 
             # save the export id and exported directories in export.dat file
             fExportDat = ExpDir + "/export.dat"
@@ -153,11 +153,11 @@ def GetExpGeomNearNbr(dB,calcId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb=
         cond = []
         if GidList:      cond.append( 'id in (' + ",".join(map(str, GidList)) + ')')     #include gidlist
         if ConstDb:      cond.append( '(' + ConstDb + ')')                               #include constraint
-        if not inclPath: cond.append( "tags NOT LIKE '%path%'")                          #exclude pathological
+        if not inclPath: cond.append( "( tags NOT LIKE '%path%')")                          #exclude pathological
 
         cond = ' where ' + ' and '.join(cond) if cond else ''
         cur.execute('SELECT Id,Nbr FROM Geometry' + cond)
-        print('SELECT Id,Nbr FROM Geometry' + cond)
+
 
 
         expGClist = []                                            # list that collects the exportable jobs info
@@ -287,7 +287,7 @@ def ExportCalc(cur, Db,GeomId,calcId,DataDir,ExpDir, InfoRow, ComTemplate="",Sta
     # this is to safegaurd against faulty imports. this should be renamed to .calc upon successful run
     fCalc = ExportDir + "/" + BaseName + ".calc_" 
     fXYZ  = ExportDir + "/" + BaseName + ".xyz"
-    genCalcFile(CalcId,GeomId,InfoRow["Type"],BaseName,StartGId,fCalc)
+    genCalcFile(calcId,GeomId,InfoRow["Type"],BaseName,StartGId,fCalc)
     geomObj.createXYZfile(GeomRow, filename = fXYZ)  #< -- geometry file is created from outside
 
 
@@ -321,21 +321,19 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
         exportId, calcDirs = dat[0], dat[1:]
 
     # only consider the folder that has a `.calc` file
-    calcDirsDone = set([d for d in calcDirs if os.path.isfile("{0}/{1}/{1}.calc".format(ExportDir, d)) ])
 
     with sqlite3.connect(dB) as con:
             cur = con.cursor()
-            cur.execute('SELECT Status FROM Exports WHERE Id=?',(exportId,))         # check if the export id is ready for export
+            cur.execute('SELECT Status FROM Exports WHERE Id=?',(exportId,))         # check if the export id is open for import
             exp_row = cur.fetchone()
             assert exp_row,        "Export Id = {} not found in data base".format(exportId)
             assert exp_row[0] ==0, "Export Id = {} is already closed.".format(exportId)
+            importCount = 0
 
             # now obtain list of jobs which can be imported.
             cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(exportId,))
-            toImportList = cur.fetchall()
-            importCount = 0
-            for geomId, calcDir in toImportList:
-                if calcDir in calcDirsDone:
+            for geomId, calcDir in cur:
+                if os.path.isfile("{0}/{1}/{1}.calc".format(ExportDir, calcDir)):   # job successful
 
                     dirFull = ExportDir + "/" + calcDir
                     cFiles = glob(dirFull+"/*.calc")
@@ -353,7 +351,7 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
                         shutil.rmtree(dirFull)
 
             sImpGeomIds =''# update what geometries are imported with this exportid, to be handled later
-            cur.execute("UPDATE Exports SET ImpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')), ImpGeomIds=? WHERE Id=?",(sImpGeomIds,exportId))
+            cur.execute("UPDATE Exports SET ImpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')) WHERE Id=?",(exportId))
 
 
             cur.execute("SELECT count(*) FROM ExpCalc WHERE ExpId=?",(exportId,))
@@ -481,8 +479,8 @@ def dummyRun(scrDir, proc, extra):
 
 if __name__ == '__main__':
 
-    scrDir = {}
-    proc   = str({})
+    scrDir = '{}'
+    proc   = '{}'
     extra  = {}
 
     runExportedCalcs(scrDir, proc, extra)
