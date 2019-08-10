@@ -1,5 +1,6 @@
 *.pyc
 ExpDir
 GeomData
-TEST
+RunDir
+ImpDir
 .vscode

@@ -1,0 +1,42 @@
+***,HeH2+
+! $F$ : basename to be substituted
+file,2,$F$.wfu
+punch,$F$.pun
+
+basis=cc-pvtz;
+
+symmetry,nosym
+orient,noorient
+geometry=$F$.xyz
+
+{mcscf;
+occ,10;closed,0;
+wf,3,1,1;state,2;
+maxiter,40;
+start,2341.2;
+orbital,2341.2;}
+
+{mcscf;
+occ,10;closed,0;
+wf,3,1,1;state,3;
+maxiter,40;
+start,2341.2;
+orbital,2341.2;}
+
+$resvars = [E1,E2,E3]
+
+show,energy
+table,resvars,energy
+save,$F$.res,new
+title 'Multi-results: Energies ---  $F$'
+
+{ci;occ,10;core,0;closed,0;maxiter,200,200;
+ wf,3,1,1;state,3;}
+
+$resvars = [E1,E2,E3]
+
+show,energy
+table,resvars,energy
+save,$F$.res,new
+title 'Mrci-results: Energies ---  $F$'
+

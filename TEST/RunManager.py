@@ -1,3 +1,4 @@
+
 import re 
 import os
 import shutil
@@ -16,8 +17,8 @@ raedResultsStep=25
 constraint = None
 includePath = False
 ignoreFiles = []
-deleteAfterImport = True
-zipAfterImport=True
+deleteAfterImport = False
+zipAfterImport=False
 
 templ = None
 gidList = []

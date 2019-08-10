@@ -55,7 +55,7 @@ END TRANSACTION;
 
 
 
-# a simple distance of two points on 2D
+# a simple distance of atwo points on 2D
 def distance(xy1, xy2):
     return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
 
@@ -72,7 +72,7 @@ def kabsch_rmsd(p,q):
 
 
 
-# return cartesian corordinate with their centroid translated to origin
+# return cartesian corordinate with their centroid transalted to origin
 def centroid(geom):
     p = geomObj.getCart(*geom[1:])
     return p-np.mean(p, axis=0)

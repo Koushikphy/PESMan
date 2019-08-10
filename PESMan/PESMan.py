@@ -7,7 +7,6 @@ import argparse
 import textwrap
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 from ConfigParser import SafeConfigParser
-from itertools import izip_longest as izl
 
 
 # Takes a folder path compresses it into a '.tar.bz2' file and remove the folder
@@ -39,8 +38,6 @@ def unzipAll(base, extn = '.tar.bz2'):
             if file.endswith(extn):
                 path = os.path.join(root,file)
                 unZipOne(path)
-
-
 
 
 def checkPositive(val):
@@ -85,12 +82,6 @@ data base. This allows flexibility to externally manipulate the data if needed.
 '''),
 epilog='BEWARE: A PES is purely an artifact of Born-Oppenheimer separation!!!')
 
-# parser.add_argument('--config', action='store', metavar='FILE', dest='ConfigFile', default='pesman.config',
-#             help=textwrap.dedent('''\
-#              Use alternate configuration file.
-#              Default is 'pesman.config' file which must be
-#              present in the same dir as this program.\n
-#              '''))
 
 subparsers = parser.add_subparsers(title='Currently implemented sub-commands',dest='subcommand')
 
@@ -144,7 +135,6 @@ if __name__ == '__main__':
 
     scf = SafeConfigParser()
     scf.read('pesman.config')
-
 
 
     # Change these to your liking
