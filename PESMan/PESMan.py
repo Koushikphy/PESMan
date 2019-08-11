@@ -103,7 +103,7 @@ parser_export.add_argument('--sid-list','-sid', metavar='LSID', nargs='+', type=
 parser_export.add_argument('--depth', '-d', metavar='N', dest='Depth', type=notNegetive, default=1, help='Specify the value of search depth for near neighbour algorithms to find exportable jobs.\nDefault 1\n ')
 parser_export.add_argument('--template', metavar='TEMPL', dest='ComTemplate', help='Template file for generating input files.\n ')
 parser_export.add_argument('--incl-path',default=False, action='store_true',help='Include pathological geometries.\n ')
-parser_export.add_argument('--constraint', metavar='CONST', dest='ConstDb', type=str,  help='Specify a database constraint in SQLite3 query format for the geometries to be exported.\n ' )
+parser_export.add_argument('--constraint', metavar='CONST', dest='const', type=str,  help='Specify a database constraint in SQLite3 query format for the geometries to be exported.\n ' )
 
  
 parser_import = subparsers.add_parser('import', description='Import calculations into the PES database.',
@@ -155,7 +155,7 @@ if __name__ == '__main__':
         gidList =args.gid_list
         sidList = args.sid_list
         templ = args.ComTemplate
-        const = args.ConstDb
+        const = args.const
         inclp  = args.incl_path
 
         txt = textwrap.dedent("""

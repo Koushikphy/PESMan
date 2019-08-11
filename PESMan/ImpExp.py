@@ -32,7 +32,7 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
 
 
 
-def ExportNearNbrJobs(dB, calcId, jobs, exportDir,pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo):
+def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo):
     # Main export function that exports a given number of jobs for a specified calcid type
     # collect the geomid that are exportable and the calc table id which will be used as their startid
     if calcId > 1: # Mrci or nact export
@@ -52,15 +52,15 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir,pesDir, templ, gidList, sidLis
             cur.execute("INSERT INTO Exports (CalcId) VALUES (?)", (calcId,))
             exportId = cur.lastrowid
 
-            ExpDir = "{}/Export{}-{}{}".format(exportDir, exportId, InfoRow["type"], calcId)
+            expDir = "{}/Export{}-{}{}".format(exportDir, exportId, InfoRow["type"], calcId)
             # remove the export directory if already exists, may have created from some failed export. shouldn't have happened
-            if os.path.exists(ExpDir):  shutil.rmtree(ExpDir)
-            os.makedirs(ExpDir)
+            if os.path.exists(expDir):  shutil.rmtree(expDir)
+            os.makedirs(expDir)
 
             expDirs = []
             for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1):
                 print('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
-                bName = ExportCalc(cur, dB, GeomId, calcId,pesDir,ExpDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
+                bName = ExportCalc(cur, dB, GeomId, calcId,pesDir,expDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
                 expDirs.append(bName)
 
 
@@ -68,24 +68,24 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir,pesDir, templ, gidList, sidLis
             expGeomIds = [i for i,_ in ExpGeomList]
             cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')), ExpGeomIds=? WHERE Id=?", (len(expDirs), ' '.join(map(str,expGeomIds)), exportId))
 
-            lExpCalc = [[exportId,calcId, i,j] for i,j in zip(expGeomIds, expDirs)]
+            lExpCalc = [(exportId,calcId, i,j) for i,j in zip(expGeomIds, expDirs)]
             cur.executemany("INSERT INTO ExpCalc (ExpId,CalcId,GeomId,CalcDir) VALUES (?,?,?,?)",lExpCalc)
 
             
-            fExportDat = ExpDir + "/export.dat"                       # save the export id and exported directories in export.dat file
+            fExportDat = expDir + "/export.dat"                       # save the export id and exported directories in export.dat file
             with open(fExportDat,'w') as f:
                 f.write("# Auto generated file. Please do not modify\n"+ ' '.join(map(str,[exportId]+expDirs)))
 
             os.chmod(fExportDat,0444)                                  # change mode of this file to read-only to prevent accidental writes
 
-            fPythonFile =   "{}/RunJob{}.py".format(ExpDir, exportId)  # save the python file that will run the jobs
+            fPythonFile =   "{}/RunJob{}.py".format(expDir, exportId)  # save the python file that will run the jobs
             createRunJob(molInfo, fPythonFile)
             print("PESMan export successful: Id {} with {} job(s) exported".format(exportId, len(ExpGeomList)))
-            return ExpDir, exportId, expDirs
+            return expDir, exportId, expDirs
 
 
 
-def GetExpGeomNearNbr(dB,calcId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb="",inclPath=False):
+def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inclPath):
     # Get the exportable geometries and their start id for mulit jobs, returns 
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
@@ -97,37 +97,35 @@ def GetExpGeomNearNbr(dB,calcId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb=
         ExcludeGeomIds = CalcGeomIds.copy()
 
         cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
-        ExcludeGeomIds.update([i[0] for i in cur])
-
+        ExcludeGeomIds.update((i[0] for i in cur))
     #--------------------------------------------------------------------------------
         # lPrblmGeomIds = []
         # ExcludeGeomIds.update(lPrblmGeomIds)
     #--------------------------------------------------------------------------------
 
-        if GidList:
-            g, s= len(GidList), len(SidList)
-            if g>s: SidList += [-1 for _ in range(g-s)] # fill SidList if some missing
-            DictStartId = dict(zip(GidList, SidList))   # create a dict of start ids
+        if gidList:
+            sidList += [-1]*(len(gidList)-len(sidList)) # fill sidList if some missing
+            DictStartId = dict(zip(gidList, sidList))   # create a dict of start ids
 
         cond = []
-        if GidList:      cond.append( 'id in (' + ",".join(map(str, GidList)) + ')')     #include gidlist
-        if ConstDb:      cond.append( '(' + ConstDb + ')')                               #include constraint
+        if gidList:      cond.append( 'id in (' + ",".join(map(str, gidList)) + ')')     #include gidlist
+        if constDb:      cond.append( '(' + constDb + ')')                               #include constraint
         if not inclPath: cond.append( "( tags NOT LIKE '%path%')")                       #exclude pathological
 
         cond = ' where ' + ' and '.join(cond) if cond else ''
         cur.execute('SELECT Id,Nbr FROM Geometry' + cond)
 
 
-        expGClist = []                                            # list that collects the exportable jobs info
+        expGClist = []                                            # list that collects the tuple exportable jobs info
         fullGeomList = []                                         # a naive approach: store all the missed geometries
-        for GeomId, nbrList in cur:
-            if GeomId in ExcludeGeomIds: continue                 # geometry already exist, skip
-            if GidList and DictStartId[GeomId]>=0:                # negetive start id will go to main neighbour searching
-                nbrId = DictStartId[GeomId]                       # i.e. 0 or positive startid given
+        for geomId, nbrList in cur:
+            if geomId in ExcludeGeomIds: continue                 # geometry already exist, skip
+            if gidList and DictStartId[geomId]>=0:                # negetive start id will go to main neighbour searching
+                nbrId = DictStartId[geomId]                       # i.e. 0 or positive startid given
                 if not nbrId :                                    # 0 startid nothing to do here
-                    expGClist.append([GeomId, 0])
+                    expGClist.append((geomId, 0))
                 elif nbrId in CalcGeomIds :                       # positive start id, include if calculation is already done
-                    expGClist.append([GeomId, DictCalcId[nbrId]])
+                    expGClist.append((geomId, DictCalcId[nbrId]))
                 if len(expGClist)==jobs: 
                     return expGClist                              # got all the geometries needed
                 continue
@@ -136,70 +134,68 @@ def GetExpGeomNearNbr(dB,calcId,GidList=[],SidList=[],jobs=1,maxDepth=0,ConstDb=
             nbrId = nbrList[0]                                    # for this initial loop only consider first neighbour
 
             if nbrId in CalcGeomIds:
-                expGClist.append([GeomId, DictCalcId[nbrId]])     # got one match 
+                expGClist.append((geomId, DictCalcId[nbrId]))     # got one match 
                 if len(expGClist)==jobs:
                     return expGClist
                 continue
-            fullGeomList.append([GeomId, nbrList])
+            fullGeomList.append((geomId, nbrList))
         
         #Get allowed depth. Provided every nbr list has same number of elements. This may be poor, do something better
         depth = maxDepth if maxDepth else len(fullGeomList[0][1]) if fullGeomList else 0  
         exportedGeom = set([])
         for d in range(1,depth):                                   # depth loop starting from 1 to end, 
-            for GeomId, nbrList in fullGeomList:
-                if GeomId in exportedGeom: continue                
+            for geomId, nbrList in fullGeomList:
+                if geomId in exportedGeom: continue                
 
                 nbrId = nbrList[d]                                 # get d-th neighbour
                 if nbrId in CalcGeomIds:
-                    expGClist.append([GeomId, DictCalcId[nbrId]])  # got one match now don't search for any other neighbours
+                    expGClist.append((geomId, DictCalcId[nbrId]))  # got one match now don't search for any other neighbours
                     if len(expGClist)==jobs:     
                         return expGClist
-                    exportedGeom.add(GeomId)
+                    exportedGeom.add(geomId)
 
-    assert len(expGClist), "No Exportable geometries found"         # preventing null exports
+    assert expGClist, "No Exportable geometries found"         # preventing null exports
     return expGClist
 
 
 
-def GetExpMrciNactJobs(dB,calcId,jobs=50,ConstDb=""):
+def GetExpMrciNactJobs(dB, calcId, jobs, constDb):
 
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
 
         cur.execute("SELECT GeomId FROM Calc WHERE CalcId=?",(calcId,))
-        CalcGeomIds = set(cur.fetchall())
-        ExcludeGeomIds = CalcGeomIds.copy()  # jobs that is already done.
+        CalcGeomIds = {i[0] for i in cur}   # jobs that is already done.
+        ExcludeGeomIds = CalcGeomIds.copy()  
 
         cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
-        ExcludeGeomIds.update([i[0] for i in cur])
+        ExcludeGeomIds.update((i[0] for i in cur)) # exported jobs thats not done
     #--------------------------------------------------------------------------------
         # lPrblmGeomIds = []
         # ExcludeGeomIds.update(lPrblmGeomIds)
     #--------------------------------------------------------------------------------
-        if ConstDb:
-            cur.execute("SELECT Id FROM Geometry where " + ConstDb )
-            ConstGeomIds = set([i[0] for i in cur.fetchall()])
+        if constDb:
+            cur.execute("SELECT Id FROM Geometry where " + constDb )
+            ConstGeomIds = {i[0] for i in cur}
 
         cur.execute("SELECT Id,GeomId FROM Calc WHERE CalcId = 1")
 
         expGClist = []
-        for StartId, GeomId in cur:
-            if ConstDb and (GeomId not in ConstGeomIds):              # this is a small list so checking it before excludelist
-                continue
-            if (GeomId not in ExcludeGeomIds):
-                expGClist.append([GeomId, StartId])
-                if len(expGClist)==jobs:                               # got everything needed
-                    break
+        for startId, geomId in cur:
+            if constDb and (geomId not in ConstGeomIds): continue       # constraint check
+            if (geomId not in ExcludeGeomIds):
+                expGClist.append((geomId, startId))
+                if len(expGClist)==jobs: break                          # got everything needed
 
-    assert len(expGClist), "No Exportable geometries found"            # preventing null exports
+    assert expGClist, "No Exportable geometries found"                  # preventing null exports
     return expGClist
 
 
 
-def ExportCalc(cur, Db,GeomId,calcId,DataDir,ExpDir, InfoRow, ComTemplate="",StartId=0,BaseSuffix=""):
+def ExportCalc(cur, Db, geomId, calcId, pesaDir, expDir, InfoRow, ComTemplate, StartId, BaseSuffix):
 
     # get the geometry
-    cur.execute('SELECT * from Geometry WHERE Id=?',(GeomId,))
+    cur.execute('SELECT * from Geometry WHERE Id=?',(geomId,))
     GeomRow = cur.fetchone()
 
     # if template given use that, o/w use from calcinfo table
@@ -219,15 +215,15 @@ def ExportCalc(cur, Db,GeomId,calcId,DataDir,ExpDir, InfoRow, ComTemplate="",Sta
         StartGId = 0
 
     # decide basename needed for generated files and create the main export directory
-    BaseName = "{}{}-geom{}-".format(InfoRow["Type"], calcId, GeomId) + BaseSuffix
-    ExportDir = ExpDir + "/" + BaseName
+    BaseName = "{}{}-geom{}-".format(InfoRow["Type"], calcId, geomId) + BaseSuffix
+    ExportDir = expDir + "/" + BaseName
     os.makedirs(ExportDir)
 
     # for calc file, we will generate it as .calc_ <--- note extra underscore at end
     # this is to safegaurd against faulty imports. this should be renamed to .calc upon successful run
     fCalc = ExportDir + "/" + BaseName + ".calc_" 
     fXYZ  = ExportDir + "/" + BaseName + ".xyz"
-    genCalcFile(calcId,GeomId,InfoRow["Type"],BaseName,StartGId,fCalc)
+    genCalcFile(calcId,geomId,InfoRow["Type"],BaseName,StartGId,fCalc)
     geomObj.createXYZfile(GeomRow, filename = fXYZ)  #< -- geometry file is created from outside
 
 
@@ -248,10 +244,10 @@ def ExportCalc(cur, Db,GeomId,calcId,DataDir,ExpDir, InfoRow, ComTemplate="",Sta
 
 
 
-def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
+def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped):
     # imports jobs from a given export.dat file
 
-    ExportDir = os.path.abspath(os.path.dirname(expFile))
+    exportDir = os.path.abspath(os.path.dirname(expFile))
     # we only need export directory and id, everything else will be read from the database
     # so it seems a export.dat is really not needed to import a job
     with open(expFile,'r') as f: # read the export.dat and collect export id
@@ -268,14 +264,14 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
             # now obtain list of jobs which can be imported.
             cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(exportId,))
             for geomId, calcDir in cur.fetchall():
-                if os.path.isfile("{0}/{1}/{1}.calc".format(ExportDir, calcDir)):   # is this job successful?
+                if os.path.isfile("{0}/{1}/{1}.calc".format(exportDir, calcDir)):   # is this job successful?
 
-                    dirFull = ExportDir + "/" + calcDir
+                    dirFull = exportDir + "/" + calcDir
                     cFiles = glob(dirFull+"/*.calc")
                     # assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
 
                     print("Importing ...{}... ".format(dirFull), end='')
-                    ImportCalc(cur,dirFull,cFiles[0],DataDir, ignoreList=iGl, zipped=isZipped)
+                    ImportCalc(cur,dirFull,cFiles[0],pesaDir, ignoreList=iGl, zipped=isZipped)
                     print("done")
 
                     cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(exportId,geomId))
@@ -300,29 +296,28 @@ def ImportNearNbrJobs(dB, expFile, DataDir, iGl, isDel, isZipped):
 
 
 
-def ImportCalc(cur,CalcDir,CalcFile,DataDir,ignoreList, zipped):
+def ImportCalc(cur,calcDir,calcFile,pesaDir,ignoreList, zipped):
 
-    with open(CalcFile,'r') as f:
+    with open(calcFile,'r') as f:
         txt = f.read().split("\n")[1:] #first line comment
     dCalc = dict([map(str.strip, i.split(":")) for i in txt])
 
     a,b,_ = dCalc['Basename'].split('-') # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
-    DestCalcDir = DataDir+"/{}/{}".format(b,a)
-    fRes = "{}/{}.res".format(CalcDir, dCalc['Basename'])
+    destCalcDir = pesaDir+"/{}/{}".format(b,a)
+    fRes = "{}/{}.res".format(calcDir, dCalc['Basename'])
     sResults = parseResult(fRes)
-    if not os.path.exists(DestCalcDir):  os.makedirs(DestCalcDir)
+    if not os.path.exists(destCalcDir):  os.makedirs(destCalcDir)
 
-    tcalc = (dCalc["GeomId"],dCalc["CalcId"], DestCalcDir, dCalc["StartGId"],sResults)
+    tcalc = (dCalc["GeomId"],dCalc["CalcId"], destCalcDir, dCalc["StartGId"],sResults)
     cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", tcalc)
 
-    for iFile in glob("{}/*.*".format(CalcDir)):
-        if os.path.splitext(iFile)[1] in ignoreList:  # copy all file except for ones ignore list
-            continue
-        oFile = DestCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile)) # `multinact2-geom111-1` -> `multinact2-geom111`
+    for iFile in glob("{}/*.*".format(calcDir)):
+        if os.path.splitext(iFile)[1] in ignoreList: continue                   # copy all file except for ones ignore list
+        oFile = destCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile))   # `multinact2-geom111-1` -> `multinact2-geom111`
         shutil.copy(iFile, oFile)
-    if zipped: # archive the folder if specified
-        shutil.make_archive(DestCalcDir, 'bztar', root_dir=DestCalcDir, base_dir='./')
-        shutil.rmtree(DestCalcDir)
+    if zipped:                                                                  # archive the folder if specified
+        shutil.make_archive(destCalcDir, 'bztar', root_dir=destCalcDir, base_dir='./')
+        shutil.rmtree(destCalcDir)
 
 
 

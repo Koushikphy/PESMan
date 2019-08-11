@@ -50,7 +50,7 @@ def parseIteration(thisImpDir, eId, expEdDir):
     outFile ='{0}/{1}/{1}.out'.format(thisImpDir, expEdDir)
     calcExists =  os.path.exists(outFile.replace('out','calc'))
     if not calcExists:
-        print 'No calc file found. Job Failed. Skipping Import...'
+        print('No calc file found. Job may have failed. Skipping Import...')
         return
     gId = re.findall('geom(\d+)-', expEdDir)[0]   # parse goem id, just for note
     with open(outFile) as f:
@@ -61,7 +61,7 @@ def parseIteration(thisImpDir, eId, expEdDir):
     if int(val)<38:
         return True
     else:
-        print 'Job has more than 38 iteration. Skipping import...'
+        print('Job has more than 38 iteration. Skipping import...')
 
 
 
@@ -94,19 +94,19 @@ with open('IterMultiJobs.dat', 'a') as f:
 counter = 0
 
 for jobNo in range(1,maxJobs+1):
-    print "\n\n{}\tStarting Job No : {}\n{}".format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]"), jobNo, '*'*75)
+    print("\n\n{}\tStarting Job No : {}\n{}".format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]"), jobNo, '*'*75))
     thisExpDir, exportId, expEdDir = ExportNearNbrJobs(dB, calcId, jobs, expDir,pesDir, templ, gidList, sidList, depth,
                                                          constraint, includePath, molInfo)
 
     thisRunDir = thisExpDir.replace(expDir, runDir)
     thisImpDir = thisExpDir.replace(expDir, impDir)
 
-    print "\nMoving Files to RunDir..."
+    print("\nMoving Files to RunDir...")
     shutil.copytree(thisExpDir, thisRunDir)
 
     os.chdir(thisRunDir)  
     runJobPy = 'RunJob%s.py'%exportId
-    print "Running Molpro Job..."
+    print("Running Molpro Job...")
     execfile(runJobPy)
 
     os.chdir(mainDirectory) # go back to main directory
@@ -122,10 +122,10 @@ for jobNo in range(1,maxJobs+1):
         shutil.rmtree(thisExpDir)
         counter+=1
         if not counter%raedResultsStep:
-            print "Reading results from database..."
+            print("Reading results from database...")
             readResult(dB)
 
-print "\nReading results from database...",
+print("\nReading results from database...",)
 readResult(dB)
-print "done."
-print "\nTotal number of successful jobs done : {}\n{}".format(counter, '*'*75)
+print("done.")
+print("\nTotal number of successful jobs done : {}\n{}".format(counter, '*'*75))
