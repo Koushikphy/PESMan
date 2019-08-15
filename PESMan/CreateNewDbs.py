@@ -55,12 +55,14 @@ END TRANSACTION;
 
 
 
-# a simple distance of two points on 2D
-def distance(xy1, xy2):
-    return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
+# a simple distance of atwo points on 2D
+# @jit('float64(float64[:,:], float64[:,:])')
+# def distance(xy1, xy2):
+#     return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
 
 
 # calculate RMSD distance after kabsch rotation
+# @jit('float64(float64[:,:], float64[:,:])',cache=True,fastmath=True,nopython=True)
 def kabsch_rmsd(p,q):
     c = np.dot(np.transpose(p), q)                   # covariance matrix
     v, _, w = np.linalg.svd(c)                       # rotaion matrix using singular value decomposition
@@ -71,8 +73,13 @@ def kabsch_rmsd(p,q):
     return np.sqrt(np.sum((p-q)**2)/p.shape[0])
 
 
+try:
+    from numba import jit
+    kabsch_rmsd = jit('float64(float64[:,:], float64[:,:])',cache=True,fastmath=True,nopython=True)(kabsch_rmsd)
+except:
+    print('Numba not available. Use numba to run the code faster.')
 
-# return cartesian corordinate with their centroid translated to origin
+# return cartesian corordinate with their centroid transalted to origin
 def centroid(geom):
     p = geomObj.getCart(*geom[1:])
     return p-np.mean(p, axis=0)
@@ -83,12 +90,12 @@ lim = 30
 
 
 # Calculate list of geometries in ascending order of their RMSD from the `geom`
-def getKabsch(geom, lim=lim):
+def getKabsch(geom):
     #accessing the full geomList and cartesians from the global scope
     # WARNING !!! Do not use this approach with multiprocessing in windows systems
     vGeomIndex =np.where(                               # return indexes where the geometries satisfies the condition
-                    (geomList[:,2]  >= geom[2]-2.5) &
-                    (geomList[:,2]  <= geom[2]+2.5) &
+                    (geomList[:,2]  >= geom[2]-4.5) &
+                    (geomList[:,2]  <= geom[2]+4.5) &
                     (geomList[:,3]  >= geom[3]-r50) &
                     (geomList[:,3]  <= geom[3]+r50) &
                     (geomList[:, 0] != geom[0])
