@@ -3,4 +3,6 @@ ExpDir
 GeomData
 RunDir
 ImpDir
+*.nbi
+*.nbc
 .vscode

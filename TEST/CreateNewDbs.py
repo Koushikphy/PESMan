@@ -5,6 +5,7 @@ import numpy as np
 from geometry import geomObj
 from multiprocessing import Pool
 from ConfigParser import SafeConfigParser
+from time import time
 
 
 # Primarily written for a Jacobi system, modify likewise
@@ -56,11 +57,13 @@ END TRANSACTION;
 
 
 # a simple distance of atwo points on 2D
-def distance(xy1, xy2):
-    return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
+# @jit('float64(float64[:,:], float64[:,:])')
+# def distance(xy1, xy2):
+#     return np.sqrt((xy1[0] - xy2[0])**2 + (xy1[1] - xy2[1])**2)
 
 
 # calculate RMSD distance after kabsch rotation
+# @jit('float64(float64[:,:], float64[:,:])',cache=True,fastmath=True,nopython=True)
 def kabsch_rmsd(p,q):
     c = np.dot(np.transpose(p), q)                   # covariance matrix
     v, _, w = np.linalg.svd(c)                       # rotaion matrix using singular value decomposition
@@ -71,6 +74,11 @@ def kabsch_rmsd(p,q):
     return np.sqrt(np.sum((p-q)**2)/p.shape[0])
 
 
+try:
+    from numba import jit
+    kabsch_rmsd = jit('float64(float64[:,:], float64[:,:])',cache=True,fastmath=True,nopython=True)(kabsch_rmsd)
+except:
+    print('Numba not available. Use numba to run the code faster.')
 
 # return cartesian corordinate with their centroid transalted to origin
 def centroid(geom):
@@ -83,12 +91,12 @@ lim = 30
 
 
 # Calculate list of geometries in ascending order of their RMSD from the `geom`
-def getKabsch(geom, lim=lim):
+def getKabsch(geom):
     #accessing the full geomList and cartesians from the global scope
     # WARNING !!! Do not use this approach with multiprocessing in windows systems
     vGeomIndex =np.where(                               # return indexes where the geometries satisfies the condition
-                    (geomList[:,2]  >= geom[2]-2.5) &
-                    (geomList[:,2]  <= geom[2]+2.5) &
+                    (geomList[:,2]  >= geom[2]-4.5) &
+                    (geomList[:,2]  <= geom[2]+4.5) &
                     (geomList[:,3]  >= geom[3]-r50) &
                     (geomList[:,3]  <= geom[3]+r50) &
                     (geomList[:, 0] != geom[0])
@@ -112,6 +120,7 @@ def getKabsch(geom, lim=lim):
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
     # read database names from (hardcoded here) `pesman.config`
+    start = time()
     scf = SafeConfigParser()
     scf.read('pesman.config')
     dbFile = scf.get('DataBase', 'db')
@@ -151,7 +160,8 @@ if __name__ == "__main__":
 
         assert newGeomList.size, "No new geometries to add"
         # create any tags if necessary
-        tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
+        # tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
+        tags  = [geomObj.geom_tags(i) for i in newGeomList]
         newGeomList = np.column_stack([newGeomList, tags])
         # # insert the geometries and tags into database
         cur.executemany('INSERT INTO Geometry (sr,cr,gamma,Tags) VALUES (?, ?, ?, ? )', newGeomList)
@@ -173,3 +183,4 @@ if __name__ == "__main__":
         # save the geomlist in a datafile
         geomList[:,3] = np.rad2deg(geomList[:,3])
         np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')
+        print time() -start
