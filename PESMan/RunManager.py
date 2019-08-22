@@ -1,3 +1,4 @@
+from __future__ import print_function
 import re 
 import os
 import shutil
@@ -111,7 +112,9 @@ for jobNo in range(1,maxJobs+1):
 
     os.chdir(mainDirectory) # go back to main directory
 
-    shutil.move(thisRunDir, impDir)
+    # shutil.move(thisRunDir, impDir)
+    #!!! NOTE: Not moving files to impdir, files will be imported directly from rundir, toggle comment to change
+    thisImpDir = thisRunDir
 
     # only one job is exported in each run in this case
     # if multiple job is exported then have to check for each directory
@@ -125,7 +128,7 @@ for jobNo in range(1,maxJobs+1):
             print("Reading results from database...")
             readResult(dB)
 
-print("\nReading results from database...",)
+print("\nReading results from database...",end='')
 readResult(dB)
 print("done.")
 print("\nTotal number of successful jobs done : {}\n{}".format(counter, '*'*75))

@@ -73,9 +73,9 @@ def kabsch_rmsd(p,q):
     return np.sqrt(np.sum((p-q)**2)/p.shape[0])
 
 
-try:
+try: # JIT compile the above function to speed up using numba
     from numba import jit
-    kabsch_rmsd = jit('float64(float64[:,:], float64[:,:])',cache=True,fastmath=True,nopython=True)(kabsch_rmsd)
+    kabsch_rmsd = jit('float64(float64[:,:], float64[:,:])',fastmath=True,nopython=True)(kabsch_rmsd)
 except:
     print('Numba not available. Use numba to run the code faster.')
 
@@ -114,8 +114,6 @@ def getKabsch(geom):
 
 
 
-
-
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
     # read database names from (hardcoded here) `pesman.config`
@@ -126,10 +124,10 @@ if __name__ == "__main__":
     nbrDbFile = scf.get('DataBase', 'nbr')
     dbExist = os.path.exists(dbFile)
 
-    if dbExist:    # remove old db if you want
+    if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
         os.remove(dbFile)
         dbExist = False
-    if os.path.exists(nbrDbFile):    # mandatorily remove nbr db
+    if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
         os.remove(nbrDbFile)
 
 

@@ -98,10 +98,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
 
         cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
         ExcludeGeomIds.update((i[0] for i in cur))
-    #--------------------------------------------------------------------------------
-        # lPrblmGeomIds = []
         # ExcludeGeomIds.update(lPrblmGeomIds)
-    #--------------------------------------------------------------------------------
 
         if gidList:
             sidList += [-1]*(len(gidList)-len(sidList)) # fill sidList if some missing
@@ -170,10 +167,8 @@ def GetExpMrciNactJobs(dB, calcId, jobs, constDb):
 
         cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
         ExcludeGeomIds.update((i[0] for i in cur)) # exported jobs thats not done
-    #--------------------------------------------------------------------------------
-        # lPrblmGeomIds = []
         # ExcludeGeomIds.update(lPrblmGeomIds)
-    #--------------------------------------------------------------------------------
+
         if constDb:
             cur.execute("SELECT Id FROM Geometry where " + constDb )
             ConstGeomIds = {i[0] for i in cur}
@@ -214,20 +209,18 @@ def ExportCalc(cur, Db, geomId, calcId, pesaDir, expDir, InfoRow, ComTemplate, S
     else:
         StartGId = 0
 
-    # decide basename needed for generated files and create the main export directory
     BaseName = "{}{}-geom{}-".format(InfoRow["Type"], calcId, geomId) + BaseSuffix
     ExportDir = expDir + "/" + BaseName
     os.makedirs(ExportDir)
 
-    # for calc file, we will generate it as .calc_ <--- note extra underscore at end
-    # this is to safegaurd against faulty imports. this should be renamed to .calc upon successful run
-    fCalc = ExportDir + "/" + BaseName + ".calc_" 
+
+    fCalc = ExportDir + "/" + BaseName + ".calc_" # `_` at the end means job not yet done, will be removed after successful run
     fXYZ  = ExportDir + "/" + BaseName + ".xyz"
     genCalcFile(calcId,geomId,InfoRow["Type"],BaseName,StartGId,fCalc)
     geomObj.createXYZfile(GeomRow, filename = fXYZ)  #< -- geometry file is created from outside
 
 
-    if StartId:                       # copy wavefunc if start id is 
+    if StartId:                       # copy wavefunc if start id is present
         if os.path.isdir(StartDir):   # not in zipped format, copy it to a new name
             shutil.copy(StartDir+ "/%s.wfu"%StartBaseName, ExportDir+"/%s.wfu"%BaseName )
         else:                         # file is in tar
@@ -282,13 +275,12 @@ def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped):
                         shutil.rmtree(dirFull)
 
             cur.execute("UPDATE Exports SET ImpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')) WHERE Id=?",(exportId,))
-
             cur.execute("SELECT count(*) FROM ExpCalc WHERE ExpId=?",(exportId,))
 
             if cur.fetchone()[0]==0:
                 cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(exportId,))
                 print('Export Id={} is now closed.'.format(exportId))
-                if isDel: shutil.rmtree(ExportDir)
+                if isDel: shutil.rmtree(exportDir)
             else :
                 print('Export Id={} is not closed.'.format(exportId))
 

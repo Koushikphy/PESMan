@@ -50,6 +50,28 @@ def notNegetive(val):
     if val < 0: raise argparse.ArgumentTypeError("Only positive integers and 0 are allowed")
     return val
 
+# delete geomdatas from a list of geomids
+def deleteCalcs(dB, pesDir, calcId, geomIdList):
+    import sqlite3
+    with sqlite3.connect(dB) as con:
+        cur = con.cursor()
+        cur.execute('select type from CalcInfo where id=?',(calcId,))
+        calcName = cur.fetchone()[0]
+        for geomId in geomIdList:
+            dirToRemove = '{}/geom{}/{}{}'.format(pesDir, geomId,calcName, calcId)
+            if os.path.isdir(dirToRemove): # geomdata is in folder format
+                shutil.rmtree(dirToRemove)
+            elif os.path.isfile(dirToRemove+'.tar.bz2'): # if is it in archived
+                os.remove(dirToRemove+'.tar.bz2')
+            else:
+                print("No GeomData found for CalcId = {}, GeomId = {}".format(calcId,geomId) )
+                continue
+            cur.execute('delete from calc where geomid = ? and calcid = ?',(geomId,calcId))
+            cur.execute('delete from expcalc where geomid = ? and calcid = ?',(geomId,calcId))
+            print("CalcId = {}, GeomId = {} deleted".format(calcId,geomId))
+
+
+
 
 parser = argparse.ArgumentParser(
            prog='PESMan',
@@ -119,13 +141,18 @@ and compressing and decompressing takes considerable time.''')
 
 
 
-parser_zip = subparsers.add_parser('zip', description='Archive one/multiple directory or all individual geom folders.\n ')
+parser_zip = subparsers.add_parser('zip', description='Archive one/multiple directory or all individual geom folders.\n ', help = 'Archive one/multiple directory or all individual geom folders.')
 parser_zip.add_argument('-d', metavar="LIST", nargs='+', type=str, default=[], help='Provide path(s) of folder(s) to archive.\n ' )
 parser_zip.add_argument('-all' ,metavar="DIR", nargs='*', type=str, help='Use this flag to archive all geom folders by default.\nAdditionally provide folder names to to search for to archive.' )
 
-parser_unzip = subparsers.add_parser('unzip', description='Extract one/multiple directory or all individual archived geom folders.\n ')
+parser_unzip = subparsers.add_parser('unzip', description='Extract one/multiple directory or all individual archived geom folders.\n ', help= 'Extract one/multiple directory or all individual archived geom folders.')
 parser_unzip.add_argument('-f', metavar="LIST", nargs='+', type=str, default=[], help='Provide path(s) of file(s) to unarchive.\n ')
 parser_unzip.add_argument('-all' ,metavar="ROOT",nargs='?',const='.', type=str, help='Use this flag to unarchive all geom folders by default.\nAdditionally provide root folder where to search for.' )
+
+
+parser_delete = subparsers.add_parser('delete', description='Delete one/multiple geometry data\n ', help= 'Delete one/multiple geometry data')
+parser_delete.add_argument('-gid', metavar="GID", type=str,required=True, help='Provide geomids to remove.\nUse "-" to provide a range.\n ')
+parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
 
 
 
@@ -221,3 +248,10 @@ if __name__ == '__main__':
         if args.all:
             unzipAll(args.all)
 
+
+    if args.subcommand== 'delete':
+        calcId = args.cid
+        gid = args.gid 
+        c = [int(i) for i in gid.split('-')]
+        geomIdList = [c[0]+i for i in range(c[1]-c[0]+1)]
+        deleteCalcs(dB, pesDir, calcId, geomIdList)
