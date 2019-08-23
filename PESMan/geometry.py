@@ -3,49 +3,8 @@ import numpy as np
 hcross = 0.063508
 cminvtinv = 0.001883651
 ang= 0.529177209
+bohr2ang = 0.529177209
 
-
-
-
-
-
-def jac2cart(geom):
-
-    # the first element of geom is actually geom id, so just skip it here, well, i know this is bad.
-    rs, rc, gamma = geom
-    # gamma = np.deg2rad(gamma) # should I convert it here or is it already in radian in table????
-    f1y = rc*np.sin(gamma)
-    f1z = rc*np.cos(gamma)
-    h2y = 0.0
-    h2z = -rs/2.0
-    h3y = 0.0
-    h3z = rs/2.0
-    return np.array([[f1y,f1z], [h2y,h2z], [h3y,h3z] ])
-
-
-def geom_tags(geom):
-    """ generate tags for geometry """
-    theta = geom[2]
-    dat = jac2cart(geom)
-    # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
-    # so dists are distances of fh, hh, fh
-    tmpdat = dat[[1, 2, 0]] - dat
-    dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
-
-    path    = np.any(dists < (0.6/0.529177209)) #0.6 bohrs
-    channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
-    linear  = np.abs(theta) < 1.0e-10
-
-    l = []
-    if linear:   # linear position
-        l.append("linear")
-        if channel:
-            l.append("Finside")
-        else:
-            l.append("Foutside")
-    if path:
-        l.append("path")
-    return ":".join(l)
 
 
 
@@ -170,10 +129,11 @@ class Jacobi(object):
         self.atoms = atoms
 
     def getCart(self, sr, cr, gamma):
+        # return in angstrom, provided the inputs are in atomic unit and gamma is in radian
         p1 = [0,0.0,  sr/2.0 ]
         p2 = [0,0.0, -sr/2.0]
         p3 = [0, cr*np.sin(gamma), cr*np.cos(gamma)]
-        return np.array([p1, p2, p3])*ang # return in angstrom
+        return np.array([p1, p2, p3])*bohr2ang
 
     def createXYZfile(self, geomRow, filename):
         sr = geomRow["sr"]
@@ -192,9 +152,9 @@ class Jacobi(object):
         # dat -> h,h,he and dat[[1, 2, 0]] -> h,he,h
         # so dists are distances of hh, hhe, heh
         tmpdat = dat[[1, 2, 0]] - dat
-        dists  = np.sqrt(np.sum(tmpdat**2, axis=1))
+        dists  = np.linalg.norm(tmpdat,axis=1)
 
-        path    = np.any(dists < (0.5/0.529177209)) #0.5 bohrs
+        path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohrs, getCart returns in angstorm
         channel = np.abs(dists[1] + dists[2] - dists[0]) < 1.0e-10
         linear  = np.abs(gamma) < 1.0e-10
 
