@@ -65,10 +65,10 @@ def deleteCalcs(dB, pesDir, calcId, geomIdList):
                 os.remove(dirToRemove+'.tar.bz2')
             else:
                 print("No GeomData found for CalcId = {}, GeomId = {}".format(calcId,geomId) )
-                continue
+                # continue
             cur.execute('delete from calc where geomid = ? and calcid = ?',(geomId,calcId))
             cur.execute('delete from expcalc where geomid = ? and calcid = ?',(geomId,calcId))
-            print("CalcId = {}, GeomId = {} deleted".format(calcId,geomId))
+            print("CalcId = {}, GeomId = {} deleted from database".format(calcId,geomId))
 
 
 
@@ -151,7 +151,7 @@ parser_unzip.add_argument('-all' ,metavar="ROOT",nargs='?',const='.', type=str, 
 
 
 parser_delete = subparsers.add_parser('delete', description='Delete one/multiple geometry data\n ', help= 'Delete one/multiple geometry data')
-parser_delete.add_argument('-gid', metavar="GID", type=str,required=True, help='Provide geomids to remove.\nUse "-" to provide a range.\n ')
+parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
 
 
@@ -252,6 +252,10 @@ if __name__ == '__main__':
     if args.subcommand== 'delete':
         calcId = args.cid
         gid = args.gid 
-        c = [int(i) for i in gid.split('-')]
-        geomIdList = [c[0]+i for i in range(c[1]-c[0]+1)]
+        geomIdList = []
+        for ll in gid:
+            c = [int(i) for i in ll.split('-')]
+            if len(c)=2: # a range is given, flat it out
+                c = [c[0]+i for i in range(c[1]-c[0]+1)]
+            geomIdList.extend(c)
         deleteCalcs(dB, pesDir, calcId, geomIdList)

@@ -16,6 +16,7 @@ class Spectroscopic(object):
         self.equigeom = np.array(equigeom)
         self.parseData(freq,aq1,aq2)
 
+
     def parseData(self, freq, aq1, aq2):
         aq    = np.column_stack([aq1,aq2]).reshape(len(atoms),3,2)
         msInv  = np.sqrt(1/self.masses)
@@ -28,12 +29,15 @@ class Spectroscopic(object):
         qCord = [rho*np.cos(phi), rho*np.sin(phi)]
         return self.equigeom + np.einsum('ijk,k->ij',self.wfm, qCord)
     
-    def createXYZfile(self, geomRow, filename):
+    def createXYZfile(self, geomRow, filename, rad=True):
         # this function is called from impexp during export with geomrow as a dictionary
         rho = geomRow["rho"]
         phi = geomRow["phi"]
         gId = geomRow["Id"]
         curGeom = self.getCart(rho,phi)
+        if rad:
+            theta = np.rad2deg(theta)
+            phi = np.rad2deg(phi)
         txt = "{}\nGeometry file for GeomId {} : Rho={}, Phi={}\n".format(len(self.atoms), rho, phi, gId)
         for i,j in zip(self.atoms, curGeom):  txt += "{},{},{},{}\n".format(i, *j)
         with open(filename,"w") as f:  f.write(txt)
@@ -42,13 +46,31 @@ class Spectroscopic(object):
 
 class Scattering(object):
     def __init__(self, atoms, masses):
-        pass
+        self.atoms = atoms
+        self.masses = masses
 
-    def getCart(self):
-        pass
-    
-    def createXYZfile(self, geomRow, filename):
-        pass
+
+    def getCart(self, rho, theta, phi):
+        rs, rc, gamma = self.toJacobi(rho, theta, phi)
+        p1 = [0, rc*np.sin(gamma), rc*np.cos(gamma)]
+        p2 = [0,0.0, -rs/2.0]
+        p3 = [0,0.0, rs/2.0 ]
+        return np.array([p1, p2, p3])*bohr2ang
+
+
+    def createXYZfile(self, geomRow, filename, rad=True):
+        # rad true means the values in database are in degree
+        rho = geomRow["rho"]
+        theta = geomRow["theta"]
+        phi = geomRow["phi"]
+        gId = geomRow["Id"]
+        curGeom = self.getCart(rho, theta, phi)
+        if rad:
+            theta = np.rad2deg(theta)
+            phi = np.rad2deg(phi)
+        txt = "{}\nGeometry file for GeomId {} : rho={}, theta={}, phi={}\n".format(len(self.atoms), gId, rho, theta, phi)
+        for i,j in zip(self.atoms, curGeom):  txt += "{},{:13.10f},{:13.10f},{:13.10f}\n".format(i, *j)
+        with open(filename,"w") as f:  f.write(txt)
 
 
     def AreaTriangle(self,a,b,c):
@@ -61,10 +83,11 @@ class Scattering(object):
         ar = np.sqrt(ar)
         return ar
 
+
     def toJacobi(self,rho, theta,phi):
-       #! do this in more short way?
-        """ returns jacobi coordinates """
-        m1, m2, m3 = self.atomMass
+        #! do this in more short way?
+        """  returns jacobi coordinates """
+        m1, m2, m3 = self.masses
 
         M = m1 + m2 + m3
         mu = np.sqrt(m1*m2*m3/M)
@@ -73,11 +96,9 @@ class Scattering(object):
         d3 = np.sqrt(m3*(m1+m2)/(mu*M))
         eps3 = 2 * np.arctan(m2/mu)
         eps2 = 2 * np.arctan(m3/mu)
-        eps3 = np.rad2deg(eps3)
-        eps2 = np.rad2deg(eps2)
-        R1 = (1.0/np.sqrt(2.0))*rho*d3*np.sqrt(1.0+ self.sin(theta)*self.cos(phi+eps3)) 
-        R2 = (1.0/np.sqrt(2.0))*rho*d1*np.sqrt(1.0+ self.sin(theta)*self.cos(phi))      
-        R3 = (1.0/np.sqrt(2.0))*rho*d2*np.sqrt(1.0+ self.sin(theta)*self.cos(phi-eps2)) 
+        R1 = (1.0/np.sqrt(2.0))*rho*d3*np.sqrt(1.0+ np.sin(theta)*np.cos(phi+eps3)) 
+        R2 = (1.0/np.sqrt(2.0))*rho*d1*np.sqrt(1.0+ np.sin(theta)*np.cos(phi))      
+        R3 = (1.0/np.sqrt(2.0))*rho*d2*np.sqrt(1.0+ np.sin(theta)*np.cos(phi-eps2)) 
 
         if R1 < 1e-10:
             R1 = 0.0
@@ -114,13 +135,29 @@ class Scattering(object):
         gamma = np.arctan2(y,x)
         return (rs, rc, gamma)
 
-    def hyperToCart(self, rho, theta, phi):
-        # create an cartesian corodinate from hyper spherical coordiante
-        rs, rc, gamma = self.toJacobi(rho, theta, phi)
-        p1 = [0, rc*np.sin(gamma), rc*np.cos(gamma)]
-        p2 = [0,0.0, -rs/2.0]
-        p3 = [0,0.0, rs/2.0 ]
-        return np.array([p1, p2, p3])/ang # return in angstrom
+    def geom_tags(self, geom):
+        """ generate tags for geometry """
+        rho,theta,phi = geom
+        dat = self.getCart(rho,theta,phi)
+        # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
+        # so dists are distances of fh, hh, fh
+        tmpdat = dat[[1, 2, 0]] - dat
+        dists  = np.linalg.norm(tmpdat,axis=1)
+
+        path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohrs, getCart returns in angstorm
+        channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
+        linear  = np.abs(theta) < 1.0e-10
+
+        l = []
+        if linear:   # linear position
+            l.append("linear")
+            if channel:
+                l.append("Heinside")
+            else:
+                l.append("Heoutside")
+        if path:
+            l.append("path")
+        return ":".join(l)
 
 
 
@@ -135,14 +172,17 @@ class Jacobi(object):
         p3 = [0, cr*np.sin(gamma), cr*np.cos(gamma)]
         return np.array([p1, p2, p3])*bohr2ang
 
-    def createXYZfile(self, geomRow, filename):
+    def createXYZfile(self, geomRow, filename, rad=True):
         sr = geomRow["sr"]
         cr = geomRow["cr"]
         gamma = geomRow["gamma"]
         gId = geomRow["Id"]
         curGeom = self.getCart(sr, cr, gamma)
+        if rad:
+            theta = np.rad2deg(theta)
+            phi = np.rad2deg(phi)
         txt = "{}\nGeometry file for GeomId {} : sr={}, cr={}, gamma={}\n".format(len(self.atoms), gId, sr, cr, gamma)
-        for i,j in zip(self.atoms, curGeom):  txt += "{},{:7.3f},{:7.3f},{:7.3f}\n".format(i, *j)
+        for i,j in zip(self.atoms, curGeom):  txt += "{},{:13.10f},{:13.10f},{:13.10f}\n".format(i, *j)
         with open(filename,"w") as f:  f.write(txt)
 
     def geom_tags(self, geom):
@@ -170,6 +210,6 @@ class Jacobi(object):
         return ":".join(l)
 
 # wrong masses
-atoms = ["H", "H", "He"]
-
-geomObj = Jacobi(atoms)
+atoms = ["F","H", "H"]
+masses= [19.0,1.0,1.0]
+geomObj = Scattering(atoms, masses)
