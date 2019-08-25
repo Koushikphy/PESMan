@@ -1,4 +1,3 @@
-from __future__ import print_function
 import re
 import os
 import shutil
@@ -32,7 +31,7 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
 
 
 
-def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo):
+def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo,logger):
     # Main export function that exports a given number of jobs for a specified calcid type
     # collect the geomid that are exportable and the calc table id which will be used as their startid
     if calcId > 1: # Mrci or nact export
@@ -59,7 +58,7 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidLi
 
             expDirs = []
             for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1):
-                print('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
+                logger.info('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
                 bName = ExportCalc(cur, dB, GeomId, calcId,pesDir,expDir, InfoRow, templ,StartId=StartCalcId, BaseSuffix=str(ind))
                 expDirs.append(bName)
 
@@ -80,7 +79,7 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidLi
 
             fPythonFile =   "{}/RunJob{}.py".format(expDir, exportId)  # save the python file that will run the jobs
             createRunJob(molInfo, fPythonFile)
-            print("PESMan export successful: Id {} with {} job(s) exported".format(exportId, len(ExpGeomList)))
+            logger.info("PESMan export successful: Id {} with {} job(s) exported\n".format(exportId, len(ExpGeomList)))
             return expDir, exportId, expDirs
 
 
@@ -237,7 +236,7 @@ def ExportCalc(cur, Db, geomId, calcId, pesaDir, expDir, InfoRow, ComTemplate, S
 
 
 
-def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped):
+def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped, logger):
     # imports jobs from a given export.dat file
 
     exportDir = os.path.abspath(os.path.dirname(expFile))
@@ -263,15 +262,14 @@ def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped):
                     cFiles = glob(dirFull+"/*.calc")
                     # assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
 
-                    print("Importing ...{}... ".format(dirFull), end='')
+                    logger.info("Importing ...{}... ".format(dirFull))
                     ImportCalc(cur,dirFull,cFiles[0],pesaDir, ignoreList=iGl, zipped=isZipped)
-                    print("done")
 
                     cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(exportId,geomId))
                     importCount += 1
                     
                     if isDel: 
-                        print("Deleting directory {}".format(dirFull))
+                        logger.info("Deleting directory {}".format(dirFull))
                         shutil.rmtree(dirFull)
 
             cur.execute("UPDATE Exports SET ImpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')) WHERE Id=?",(exportId,))
@@ -279,12 +277,12 @@ def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped):
 
             if cur.fetchone()[0]==0:
                 cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(exportId,))
-                print('Export Id={} is now closed.'.format(exportId))
+                logger.info('Export Id={} is now closed.'.format(exportId))
                 if isDel: shutil.rmtree(exportDir)
             else :
-                print('Export Id={} is not closed.'.format(exportId))
+                logger.info('Export Id={} is not closed.'.format(exportId))
 
-            print("{} Job(s) have been successfully imported.".format(importCount))
+            logger.info("{} Job(s) have been successfully imported.\n".format(importCount))
 
 
 

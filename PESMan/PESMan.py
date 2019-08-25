@@ -2,11 +2,37 @@
 
 import os
 import shutil
+import logging 
 import tarfile
 import argparse
 import textwrap
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 from ConfigParser import SafeConfigParser
+
+
+class MyFormatter(logging.Formatter):
+    def __init__(self, fmt=None, datefmt="%I:%M:%S %p %d-%m-%Y"):
+        logging.Formatter.__init__(self, fmt, datefmt)
+
+    def format(self, record):
+        if record.levelno == logging.INFO: self._fmt = "%(message)s"
+        elif record.levelno == logging.DEBUG: self._fmt = "[%(asctime)s] - %(message)s"
+        result = logging.Formatter.format(self, record)
+        return result
+
+def makeLogger(logFile='PESMan.log', stdout=False):
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    fh = logging.FileHandler(logFile)
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(MyFormatter())
+    logger.addHandler(fh)
+    if stdout:
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+    return logger
+
 
 
 # Takes a folder path compresses it into a '.tar.bz2' file and remove the folder
@@ -157,12 +183,11 @@ parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='
 
 
 if __name__ == '__main__':
-
+    logger = makeLogger(stdout=True)
     args = parser.parse_args()
 
     scf = SafeConfigParser()
     scf.read('pesman.config')
-
 
     # Change these to your liking
     dB = scf.get('DataBase', 'db')
@@ -201,8 +226,8 @@ if __name__ == '__main__':
         Constraint      : {}
         Include Path    : {}
         """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, inclp))
-        print(txt)
-        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo)
+        logger.debug(txt)
+        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo,logger)
 
 
     # Execute an import command
@@ -220,9 +245,9 @@ if __name__ == '__main__':
         Delete after import : {}
         Archive directory   : {}
         """.format(dB, pesDir, iGl, isDel, isZipped))
-        print(txt)
+        logger.debug(txt)
         for expFile in args.ExpFile: # accepts multiple export files
-            ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped)
+            ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped, logger)
 
 
 
@@ -252,6 +277,7 @@ if __name__ == '__main__':
     if args.subcommand== 'delete':
         calcId = args.cid
         gid = args.gid 
+        logger.debug('Deleting GeomIds: {}'.format(gid))
         geomIdList = []
         for ll in gid:
             c = [int(i) for i in ll.split('-')]
