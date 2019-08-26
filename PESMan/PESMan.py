@@ -8,6 +8,7 @@ import argparse
 import textwrap
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 from ConfigParser import SafeConfigParser
+# from logging.handlers import TimedRotatingFileHandler
 
 
 class MyFormatter(logging.Formatter):
@@ -28,6 +29,8 @@ def makeLogger(logFile, stdout=False):
     formatter = MyFormatter()
     fh.setFormatter(formatter)
     logger.addHandler(fh)
+    # fht = TimedRotatingFileHandler(logFile, when="midnight",backupCount=5)
+    # logger.addHandler(fht)
     if stdout:
         ch = logging.StreamHandler(sys.stdout)
         ch.setFormatter(formatter)

@@ -8,6 +8,7 @@ from datetime import datetime
 from ConfigParser import SafeConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 from ReadResultsMulti import main as readResult
+# from logging.handlers import TimedRotatingFileHandler
 
 
 #################################################
@@ -69,6 +70,8 @@ def makeLogger(logFile, stdout=False):
     formatter = MyFormatter()
     fh.setFormatter(formatter)
     logger.addHandler(fh)
+    # fht = TimedRotatingFileHandler(logFile, when="midnight",backupCount=5)
+    # logger.addHandler(fht)
     if stdout:
         ch = logging.StreamHandler(sys.stdout)
         ch.setFormatter(formatter)
@@ -109,9 +112,9 @@ else:
     iterLog= open(iterFile, 'a', buffering=1)
 
 
-logger.info('-------------------------------------------------------')
+logger.info('----------------------------------------------------------')
 logger.debug('''Starting PESMan RunManager
--------------------------------------------------------
+----------------------------------------------------------
         Total Jobs         :   {}
         CalcId             :   {}
         Depth              :   {}
@@ -121,7 +124,7 @@ logger.debug('''Starting PESMan RunManager
         Ignore Files       :   {}
         Archive            :   {}
         Delete on Import   :   {}
---------------------------------------------------
+----------------------------------------------------------
 '''.format(maxJobs, calcId, depth, raedResultsStep, constraint, includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
 
 
@@ -131,7 +134,6 @@ try:
     mainDirectory = os.getcwd()
     counter = 0
     for jobNo in range(1,maxJobs+1):
-        logger.info('')
         logger.debug('  Starting Job No : {}\n{}'.format( jobNo, '*'*75))
         thisExpDir, exportId, expEdDir = ExportNearNbrJobs(dB, calcId, jobs, expDir,pesDir, templ, gidList, sidList, depth,
                                                             constraint, includePath, molInfo,logger)
@@ -176,6 +178,6 @@ try:
 
     logger.info("Reading results from database...")
     readResult(dB)
-    logger.info("Total number of successful jobs done : {}\n{}".format(counter, '*'*75))
+    logger.info("Total number of successful jobs done : {}\n{}\n".format(counter, '*'*75))
 except:
     logger.exception('PESMan RunManager failed')
