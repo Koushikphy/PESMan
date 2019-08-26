@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import os
+import os,sys
 import shutil
 import logging 
 import tarfile
@@ -20,12 +20,13 @@ class MyFormatter(logging.Formatter):
         result = logging.Formatter.format(self, record)
         return result
 
-def makeLogger(logFile='PESMan.log', stdout=False):
+def makeLogger(logFile, stdout=False):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     fh = logging.FileHandler(logFile)
     fh.setLevel(logging.DEBUG)
-    fh.setFormatter(MyFormatter())
+    formatter = MyFormatter()
+    fh.setFormatter(formatter)
     logger.addHandler(fh)
     if stdout:
         ch = logging.StreamHandler(sys.stdout)
@@ -183,7 +184,6 @@ parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='
 
 
 if __name__ == '__main__':
-    logger = makeLogger(stdout=True)
     args = parser.parse_args()
 
     scf = SafeConfigParser()
@@ -193,12 +193,14 @@ if __name__ == '__main__':
     dB = scf.get('DataBase', 'db')
     pesDir = scf.get('Directories', 'pesdir')
     exportDir = scf.get('Directories', 'expdir')
+    logFile = scf.get('Log', 'LogFile')
     molInfo = dict(scf.items('molInfo'))
     try:
         molInfo['extra'] = molInfo['extra'].split(',')
     except KeyError:
         molInfo['extra'] = []
 
+    logger = makeLogger(logFile=logFile,stdout=True)    
 
     if args.subcommand == 'export':
         calcId = args.calc_id
@@ -210,10 +212,8 @@ if __name__ == '__main__':
         const = args.const
         inclp  = args.incl_path
 
-        txt = textwrap.dedent("""
-        ------------------------------------
-                    PESMan Export
-        ------------------------------------
+        txt = textwrap.dedent("""  PESMan Export
+-------------------------------------------------
         Database        : {}
         Calc Type Id    : {}
         PESDir          : {}
@@ -226,8 +226,12 @@ if __name__ == '__main__':
         Constraint      : {}
         Include Path    : {}
         """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, inclp))
+        logger.info('-------------------------------------------------')
         logger.debug(txt)
-        ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo,logger)
+        try:
+            ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo,logger)
+        except:
+            logger.exception('PESMan Export failed')
 
 
     # Execute an import command
@@ -235,20 +239,21 @@ if __name__ == '__main__':
         isZipped = args.zip
         iGl = args.ig
         isDel = args.delete
-        txt = textwrap.dedent("""
-        --------------------------------------
-                    PESMan Import 
-        --------------------------------------
+        txt = textwrap.dedent("""PESMan Import 
+-------------------------------------------------
         Database            : {}
         PES Dir             : {}
         Ignore files        : {}
         Delete after import : {}
         Archive directory   : {}
         """.format(dB, pesDir, iGl, isDel, isZipped))
+        logger.info('-------------------------------------------------')
         logger.debug(txt)
-        for expFile in args.ExpFile: # accepts multiple export files
-            ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped, logger)
-
+        try:
+            for expFile in args.ExpFile: # accepts multiple export files
+                ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped, logger)
+        except:
+            logger.exception('PESMan import failed')
 
 
 
@@ -281,7 +286,7 @@ if __name__ == '__main__':
         geomIdList = []
         for ll in gid:
             c = [int(i) for i in ll.split('-')]
-            if len(c)=2: # a range is given, flat it out
+            if len(c)==2: # a range is given, flat it out
                 c = [c[0]+i for i in range(c[1]-c[0]+1)]
             geomIdList.extend(c)
         deleteCalcs(dB, pesDir, calcId, geomIdList)

@@ -20,4 +20,4 @@ with sqlite3.connect(db) as con:
         stemp = open(tem).read()
         cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))
     for row in cur.execute("SELECT * FROM CalcInfo"):  print row
-    print "Record inserted and closed"
+    print "{} template inserted into database".format(len(templates))

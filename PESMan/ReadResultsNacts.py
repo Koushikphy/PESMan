@@ -15,25 +15,11 @@ with sqlite3.connect('no2db.db') as con:
 # This is the list of indexes in geomrow corresponding to the id in calcrow
 sortedIndex = np.searchsorted(GeomRow[:,0], CalcRow[:,0], sorter=GeomRow[:,0].argsort())
 resArr = np.column_stack([ GeomRow[sortedIndex][:,1:], CalcRow[:,1:]]) # array of [[rho, phi, results..]...]
-# sort out jumbling of rho, phi values, also remove any duplicates in process, may not work always
+# sort out jumbling of rho, phi values, also remove any duplicates in process
+# not necessary if data is sorted and without duplicates
 resArr = np.unique(resArr, axis=0)
 
-# hcross    = 0.06350781278
-# cminvtinv = 0.001883651
-# ang       = 0.529177249
 
-
-# aq1   = np.loadtxt('./coeff_Q1.dat')
-# aq2   = np.loadtxt('./coeff_Q3.dat')
-# omega = np.array([759.61,1687.70 ])
-# mass  = np.array([14.006700, 15.999400, 15.999400])
-
-# aq    = np.column_stack([aq1,aq2]).reshape(3,3,2)
-# msInv  = np.sqrt(1/mass)
-# omgInv = np.sqrt(hcross/(omega*cminvtinv))
-
-# # innermost axis of aq is the normal modes
-# aq = np.einsum('ijk,k,i->ijk', aq, omgInv, msInv)/ang
 aq = geomObj.wfm
 
 # gradRes in shape of (rows, ireps, atoms, coord)
@@ -80,3 +66,26 @@ for rho in rhoList:
     tauQ2File.write('\n')
     tauRhoFile.write('\n')
     tauPhiFile.write('\n')
+
+
+# an TAU-THETA NACT func for scattering system, provided resArr has rho,theta,phi, grads...
+# dth = np.deg2rad(0.03)
+# def getTauTheta(geomDat):
+#     # now geomdat has values rho,theta,phi,grad1,.......
+#     rho,theta,phi = geomDat[:3]
+#     grads = geomDat[3:].reshape(3,3)
+#     mainCart = geomObj.getCart(rho, theta, phi)
+#     # now calculate the dx/dtheta
+
+#     thePlCart = geomObj.getCart(rho, theta+dth, phi)
+#     theMnCart = geomObj.getCart(rho, theta-dth, phi)
+#     gradTheta = (thePlCart-theMnCart)/(2.0*dth)
+#     tauTh = np.abs(np.einsum('ij,ij',grads,gradTheta))
+#     return np.array([rho,theta, phi,tauTh])
+
+# result = np.apply_along_axis(getTauTheta, 1, resArr)
+
+# file = open('TAU-THETA.dat','wb')
+# for rho in np.unique(result[:,0]):
+#     np.savetxt( file, result[result[:,0]==rho] ,delimiter="\t", fmt=str("%.10f"))
+#     file.write('\n')

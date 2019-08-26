@@ -13,9 +13,9 @@ sql_script = """
 BEGIN TRANSACTION;
 CREATE TABLE Geometry(
 Id INTEGER PRIMARY KEY,
-sr REAL,
-cr REAL,
-gamma REAL,
+rho REAL,
+theta REAL,
+phi REAL,
 Tags TEXT,
 Nbr TEXT);
 CREATE TABLE CalcInfo(
@@ -94,8 +94,10 @@ def getKabsch(geom):
     #accessing the full geomList and cartesians from the global scope
     # WARNING !!! Do not use this approach with multiprocessing in windows systems
     vGeomIndex =np.where(                               # return indexes where the geometries satisfies the condition
-                    (geomList[:,2]  >= geom[2]-4.5) &
-                    (geomList[:,2]  <= geom[2]+4.5) &
+                    (geomList[:,1]  >= geom[1]-4.5) &
+                    (geomList[:,1]  <= geom[1]+4.5) &
+                    # (geomList[:,2]  >= geom[2]-r50) &
+                    # (geomList[:,2]  >= geom[2]-r50) &
                     (geomList[:,3]  >= geom[3]-r50) &
                     (geomList[:,3]  <= geom[3]+r50) &
                     (geomList[:, 0] != geom[0])
@@ -139,9 +141,14 @@ if __name__ == "__main__":
         curNbr = conNbr.cursor()
         curNbr.executescript(sql_nbrtable_commands)
 
+        rho = np.concatenate((np.linspace(2,4.5,6), np.linspace(5,9,17), np.linspace(9,14,11)))
+        theta = 3.0
+        phi = np.linspace(0,180,61)
+
+
         # create the geometry list here
-        newGeomList = np.stack( np.mgrid[2.0:2.0:1j, 0:10:101j, 0:90:19j], axis=3).reshape(-1,3)
-        newGeomList[:,2] = np.deg2rad(newGeomList[:,2])
+        newGeomList =np.stack( np.meshgrid(rho,theta,phi,indexing='ij'), axis=3).reshape(-1,3)
+        newGeomList[:,1:] = np.deg2rad(newGeomList[:,1:])
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
         # if dbExist: 
         #     cur.execute('select rho,phi from geometry')
@@ -159,10 +166,10 @@ if __name__ == "__main__":
         tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
         newGeomList = np.column_stack([newGeomList, tags])
         # # insert the geometries and tags into database
-        cur.executemany('INSERT INTO Geometry (sr,cr,gamma,Tags) VALUES (?, ?, ?, ? )', newGeomList)
+        cur.executemany('INSERT INTO Geometry (rho,theta,phi,Tags) VALUES (?, ?, ?, ? )', newGeomList)
 
         #get the updated table with ids
-        cur.execute('select id,sr,cr,gamma from geometry')
+        cur.execute('select id,rho,theta,phi from geometry')
         geomList= np.array(cur.fetchall())
 
         # Create the cartesian geometries, with centroid translated to origin
@@ -176,5 +183,5 @@ if __name__ == "__main__":
             curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
 
         # save the geomlist in a datafile
-        geomList[:,3] = np.rad2deg(geomList[:,3])
+        geomList[:,2:] = np.rad2deg(geomList[:,2:])
         np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')

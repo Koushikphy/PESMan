@@ -262,7 +262,7 @@ def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped, logger):
                     cFiles = glob(dirFull+"/*.calc")
                     # assert len(cFiles)==1, "{} must have 1 calc file but has {}.".format(dirFull, len(cFiles))
 
-                    logger.info("Importing ...{}... ".format(dirFull))
+                    logger.info("Importing ...{}".format(dirFull))
                     ImportCalc(cur,dirFull,cFiles[0],pesaDir, ignoreList=iGl, zipped=isZipped)
 
                     cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(exportId,geomId))
@@ -278,7 +278,9 @@ def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped, logger):
             if cur.fetchone()[0]==0:
                 cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(exportId,))
                 logger.info('Export Id={} is now closed.'.format(exportId))
-                if isDel: shutil.rmtree(exportDir)
+                if isDel: 
+                    logger.info("Deleting directory {}".format(exportDir))
+                    shutil.rmtree(exportDir)
             else :
                 logger.info('Export Id={} is not closed.'.format(exportId))
 
