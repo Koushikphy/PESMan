@@ -6,3 +6,4 @@ ImpDir
 *.nbi
 *.nbc
 .vscode
+*.log

@@ -110,6 +110,10 @@ def status(dB):
         status+= 'Total number of geometries: {}\n'.format(cur.fetchone()[0])
         cur.execute('select type from CalcInfo')
         names = [i[0] for i in cur]
+        if len(names)==0:
+            status+='{0}{1}{0}'.format('-'*75,'\n\t\tNo Calcs are avialable\n','-'*75)
+            print(status)
+            return
         status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}\n{0}".format('-'*75,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.')
         for i,name in enumerate(names, start=1):
             cur.execute('select sum(NumCalc) from Exports where calcid=?',(i,))
