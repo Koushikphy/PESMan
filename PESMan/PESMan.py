@@ -101,6 +101,25 @@ def deleteCalcs(dB, pesDir, calcId, geomIdList):
             print("CalcId = {}, GeomId = {} deleted from database".format(calcId,geomId))
 
 
+def status(dB):
+    import sqlite3
+    with sqlite3.connect(dB) as con:
+        cur = con.cursor()
+        status = '-'*75+'\033[91m\n\033[4mPESMan Status:\033[0m\t\t'#+'-'*75
+        cur.execute('select count(id) from Geometry')
+        status+= 'Total number of geometries: {}\n'.format(cur.fetchone()[0])
+        cur.execute('select type from CalcInfo')
+        names = [i[0] for i in cur]
+        status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}\n{0}".format('-'*75,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.')
+        for i,name in enumerate(names, start=1):
+            cur.execute('select sum(NumCalc) from Exports where calcid=?',(i,))
+            tE = cur.fetchone()[0]
+            cur.execute('select sum(NumCalc) from Exports where calcid=? and status=1',(i,))
+            tD = cur.fetchone()[0]
+            status +="\n{:^10}|{:^13}|{:^20}|{:^20}\n".format(i,name,tE,tD)
+        print(status+'-'*75)
+
+
 
 
 parser = argparse.ArgumentParser(
@@ -184,7 +203,7 @@ parser_delete = subparsers.add_parser('delete', description='Delete one/multiple
 parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
 
-
+parser_stat = subparsers.add_parser('status', description='Check current PESMan Status\n ', help= 'Check current PESMan Status')
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -293,3 +312,6 @@ if __name__ == '__main__':
                 c = [c[0]+i for i in range(c[1]-c[0]+1)]
             geomIdList.extend(c)
         deleteCalcs(dB, pesDir, calcId, geomIdList)
+
+    if args.subcommand =='status':
+        status(dB)
