@@ -106,8 +106,8 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
         cond = []
         if gidList:      cond.append( 'id in (' + ",".join(map(str, gidList)) + ')')     #include gidlist
         if constDb:      cond.append( '(' + constDb + ')')                               #include constraint
-        if not inclPath: cond.append( "( tags NOT LIKE '%path%')")                       #exclude pathological
-
+        if not inclPath: cond.append( "( tags NOT LIKE '%path%' or tags is null)")       #exclude pathological
+        # `tags is null` is added as `not like '%path%'` doesn't match `null`!!! Is this the correct way?
         cond = ' where ' + ' and '.join(cond) if cond else ''
         cur.execute('SELECT Id,Nbr FROM Geometry' + cond)
 

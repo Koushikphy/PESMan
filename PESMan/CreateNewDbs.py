@@ -5,7 +5,6 @@ import numpy as np
 from geometry import geomObj
 from multiprocessing import Pool
 from ConfigParser import SafeConfigParser
-from numba import jit
 
 
 # Primarily written for a Jacobi system, modify likewise
@@ -98,7 +97,7 @@ def getKabsch(geom):
                     (geomList[:,1]  >= geom[1]-ranges[0]) &
                     (geomList[:,1]  <= geom[1]+ranges[0]) &
                     (geomList[:,2]  >= geom[2]-ranges[1]) &
-                    (geomList[:,2]  >= geom[2]-ranges[1]) &
+                    (geomList[:,2]  <= geom[2]+ranges[1]) &
                     (geomList[:,3]  >= geom[3]-ranges[2]) &
                     (geomList[:,3]  <= geom[3]+ranges[2]) &
                     (geomList[:, 0] != geom[0])
@@ -120,7 +119,7 @@ def getKabsch_norm(geom):
                     (geomList[:,1]  >= geom[1]-ranges[0]) &
                     (geomList[:,1]  <= geom[1]+ranges[0]) &
                     (geomList[:,2]  >= geom[2]-ranges[1]) &
-                    (geomList[:,2]  >= geom[2]-ranges[1]) &
+                    (geomList[:,2]  <= geom[2]+ranges[1]) &
                     (geomList[:, 0] != geom[0])
                     )[0]
     # get the index of current geometries, provided geomids are sorted (?)

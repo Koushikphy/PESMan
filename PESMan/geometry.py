@@ -36,7 +36,7 @@ class Spectroscopic(object):
         gId = geomRow["Id"]
         curGeom = self.getCart(rho,phi)
         if rad:
-            theta = np.rad2deg(theta)
+            phi = np.rad2deg(phi)
             phi = np.rad2deg(phi)
         txt = "{}\nGeometry file for GeomId {} : Rho={}, Phi={}\n".format(len(self.atoms), rho, phi, gId)
         for i,j in zip(self.atoms, curGeom):  txt += "{},{},{},{}\n".format(i, *j)
