@@ -130,9 +130,9 @@ logger.debug('''Starting PESMan RunManager
 
 # add an logger.exception
 # keeps a counter for the done jobs
+mainDirectory = os.getcwd()
+counter = 0
 try:
-    mainDirectory = os.getcwd()
-    counter = 0
     for jobNo in range(1,maxJobs+1):
         logger.debug('  Starting Job No : {}\n{}'.format( jobNo, '*'*75))
         thisExpDir, exportId, expEdDir = ExportNearNbrJobs(dB, calcId, jobs, expDir,pesDir, templ, gidList, sidList, depth,
@@ -179,5 +179,7 @@ try:
     logger.info("Reading results from database...")
     readResult(dB)
     logger.info("Total number of successful jobs done : {}\n{}\n".format(counter, '*'*75))
+except AssertionError as e:
+    logger.info('PESMan RunManager Stopped. %s'%e)
 except:
     logger.exception('PESMan RunManager failed')

@@ -256,6 +256,8 @@ if __name__ == '__main__':
         logger.debug(txt)
         try:
             ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo,logger)
+        except AssertionError as e:
+            logger.info('PESMan Export failed. %s'%e)
         except:
             logger.exception('PESMan Export failed')
 
@@ -278,6 +280,8 @@ if __name__ == '__main__':
         try:
             for expFile in args.ExpFile: # accepts multiple export files
                 ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped, logger)
+        except AssertionError as e:
+            logger.info('PESMan Import failed. %s'%e)
         except:
             logger.exception('PESMan import failed')
 
