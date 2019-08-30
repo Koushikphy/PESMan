@@ -10,8 +10,9 @@
 5. Modify `ReadResultsMulti.py` and `ReadResultsNacts.py` files for reading results from databases.
 
 ## Usage:
-* Initial setup
 * Use PESMan `export` to export job.
 * Use PESMan `import` to import job after successful run.
 * Use `RunManager.py` to sequencially export and import.
 * Use PESMan `zip`/`unzip` to archive or extract job folders.
+* Use PESMan `delete` to delete any geometry/calculation from database
+* Use PESMan `status` to check current status of calculation

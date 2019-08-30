@@ -37,8 +37,7 @@ class Spectroscopic(object):
         curGeom = self.getCart(rho,phi)
         if rad:
             phi = np.rad2deg(phi)
-            phi = np.rad2deg(phi)
-        txt = "{}\nGeometry file for GeomId {} : Rho={}, Phi={}\n".format(len(self.atoms), rho, phi, gId)
+        txt = "{}\nGeometry file for GeomId {} : Rho={}, Phi={}\n".format(len(self.atoms), gId, rho, phi)
         for i,j in zip(self.atoms, curGeom):  txt += "{},{},{},{}\n".format(i, *j)
         with open(filename,"w") as f:  f.write(txt)
 
@@ -179,8 +178,7 @@ class Jacobi(object):
         gId = geomRow["Id"]
         curGeom = self.getCart(sr, cr, gamma)
         if rad:
-            theta = np.rad2deg(theta)
-            phi = np.rad2deg(phi)
+            gamma = np.rad2deg(gamma)
         txt = "{}\nGeometry file for GeomId {} : sr={}, cr={}, gamma={}\n".format(len(self.atoms), gId, sr, cr, gamma)
         for i,j in zip(self.atoms, curGeom):  txt += "{},{:13.10f},{:13.10f},{:13.10f}\n".format(i, *j)
         with open(filename,"w") as f:  f.write(txt)
