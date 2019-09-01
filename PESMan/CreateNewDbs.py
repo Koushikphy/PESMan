@@ -82,8 +82,8 @@ def kabsch_rmsd(p,q):
 
 try:
     from numba import jit
-    kabsch_rmsd = jit('float64(float64[:,:], float64[:,:])',cache=True,fastmath=True,nopython=True)(kabsch_rmsd)
-    distance = jit('float64(float64[:], float64[:])',cache=True,fastmath=True,nopython=True)(distance)
+    kabsch_rmsd = jit('float64(float64[:,:], float64[:,:])',fastmath=True,nopython=True)(kabsch_rmsd)
+    distance = jit('float64(float64[:], float64[:])',fastmath=True,nopython=True)(distance)
 except:
     print('Numba JIT compilation not available. Use numba to run the code faster.')
 
@@ -302,7 +302,7 @@ if __name__ == "__main__":
 
 
 
-        assert newGeomList.size, "No new geometries to add"
+        # assert newGeomList.size, "No new geometries to add"
         # create any tags if necessary
         # tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
         # newGeomList = np.column_stack([newGeomList, tags])

@@ -6,6 +6,7 @@ import logging
 import tarfile
 import argparse
 import textwrap
+from itertools import izip_longest as izl
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 from ConfigParser import SafeConfigParser
 # from logging.handlers import TimedRotatingFileHandler
@@ -21,15 +22,15 @@ class MyFormatter(logging.Formatter):
         result = logging.Formatter.format(self, record)
         return result
 
+
 def makeLogger(logFile, stdout=False):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(logFile)
-    fh.setLevel(logging.DEBUG)
     formatter = MyFormatter()
+    fh = logging.FileHandler(logFile)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
-    # fht = TimedRotatingFileHandler(logFile, when="midnight",backupCount=5)
+    # fht = TimedRotatingFileHandler(logFile, when="midnight",backupCount=10)
     # logger.addHandler(fht)
     if stdout:
         ch = logging.StreamHandler(sys.stdout)
@@ -53,6 +54,7 @@ def zipAll(subStringList):
                 zipOne(path)
 
 
+
 #TODO: make the extension general
 # Extracts a compressed file into a folder and removes the file
 def unZipOne(path, extn = '.tar.bz2'):
@@ -70,24 +72,24 @@ def unzipAll(base, extn = '.tar.bz2'):
                 unZipOne(path)
 
 
-def checkPositive(val):
-    val = int(val)
-    if val <= 0: raise argparse.ArgumentTypeError("Only positive integers are allowed")
-    return val
-
-def notNegetive(val):
-    val = int(val)
-    if val < 0: raise argparse.ArgumentTypeError("Only positive integers and 0 are allowed")
-    return val
 
 # delete geomdatas from a list of geomids
 def deleteCalcs(dB, pesDir, calcId, geomIdList):
     import sqlite3
+    geomStr = ' where calcid = %s and geomid in ('%calcId + ','.join(map(str, geomIdList)) + ')'
+
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
+
+        cur.execute('select geomid from expcalc' + geomStr)
+        for (geomId,) in cur:
+            cur.execute('delete from expcalc where geomid = ? and calcid = ?',(geomId,calcId))
+            print("CalcId = {}, GeomId = {} deleted from ExpCalc Table".format(calcId,geomId))
+
         cur.execute('select type from CalcInfo where id=?',(calcId,))
         calcName = cur.fetchone()[0]
-        for geomId in geomIdList:
+        cur.execute('select geomid from calc' + geomStr)
+        for (geomId,) in cur:
             dirToRemove = '{}/geom{}/{}{}'.format(pesDir, geomId,calcName, calcId)
             if os.path.isdir(dirToRemove): # geomdata is in folder format
                 shutil.rmtree(dirToRemove)
@@ -95,17 +97,15 @@ def deleteCalcs(dB, pesDir, calcId, geomIdList):
                 os.remove(dirToRemove+'.tar.bz2')
             else:
                 print("No GeomData found for CalcId = {}, GeomId = {}".format(calcId,geomId) )
-                # continue
             cur.execute('delete from calc where geomid = ? and calcid = ?',(geomId,calcId))
-            cur.execute('delete from expcalc where geomid = ? and calcid = ?',(geomId,calcId))
-            print("CalcId = {}, GeomId = {} deleted from database".format(calcId,geomId))
+            print("CalcId = {}, GeomId = {} deleted from CalcTable and GeomData".format(calcId,geomId))
 
 
 def status(dB):
     import sqlite3
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
-        status = '-'*75+'\033[91m\n\033[4mPESMan Status:\033[0m\t\t'#+'-'*75
+        status = '-'*75+'\033[91m\n\033[4mPESMan Status:\033[0m\t\t'
         cur.execute('select count(id) from Geometry')
         status+= 'Total number of geometries: {}\n'.format(cur.fetchone()[0])
         cur.execute('select type from CalcInfo')
@@ -125,6 +125,16 @@ def status(dB):
 
 
 
+
+def checkPositive(val):
+    val = int(val)
+    if val <= 0: raise argparse.ArgumentTypeError("Only positive integers are allowed")
+    return val
+
+def notNegetive(val):
+    val = int(val)
+    if val < 0: raise argparse.ArgumentTypeError("Only positive integers and 0 are allowed")
+    return val
 
 parser = argparse.ArgumentParser(
            prog='PESMan',
@@ -192,6 +202,9 @@ parser_import.add_argument('-zip',default = False, action = "store_true", help =
 This reduces total size and file number substantially. But this is a CPU heavy process 
 and compressing and decompressing takes considerable time.''')
 
+subparsers.add_parser('addcalc', description="Add Calculation info defined in 'pesman.config'", help= "Add Calculation info defined in 'pesman.config'")
+subparsers.add_parser('status', description='Check current PESMan Status\n ', help= 'Check current PESMan Status')
+
 
 
 parser_zip = subparsers.add_parser('zip', description='Archive one/multiple directory or all individual geom folders.\n ', help = 'Archive one/multiple directory or all individual geom folders.')
@@ -203,11 +216,14 @@ parser_unzip.add_argument('-f', metavar="LIST", nargs='+', type=str, default=[],
 parser_unzip.add_argument('-all' ,metavar="ROOT",nargs='?',const='.', type=str, help='Use this flag to unarchive all geom folders by default.\nAdditionally provide root folder where to search for.' )
 
 
-parser_delete = subparsers.add_parser('delete', description='Delete one/multiple geometry data\n ', help= 'Delete one/multiple geometry data')
+parser_delete = subparsers.add_parser('delete', description='Delete one/multiple geometry data\n ', help= 'Delete one/multiple geometry data',formatter_class=argparse.RawTextHelpFormatter,)
 parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
 
-parser_stat = subparsers.add_parser('status', description='Check current PESMan Status\n ', help= 'Check current PESMan Status')
+
+
+
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -215,20 +231,21 @@ if __name__ == '__main__':
     scf = SafeConfigParser()
     scf.read('pesman.config')
 
-    # Change these to your liking
     dB = scf.get('DataBase', 'db')
-    pesDir = scf.get('Directories', 'pesdir')
-    exportDir = scf.get('Directories', 'expdir')
+    if not os.path.exists(dB) : raise Exception("DataBase %s doesn't exists"%dB)
     logFile = scf.get('Log', 'LogFile')
-    molInfo = dict(scf.items('molInfo'))
-    try:
-        molInfo['extra'] = molInfo['extra'].split(',')
-    except KeyError:
-        molInfo['extra'] = []
+    logger = makeLogger(logFile=logFile,stdout=True)
+    pesDir = scf.get('Directories', 'pesdir')
 
-    logger = makeLogger(logFile=logFile,stdout=True)    
 
-    if args.subcommand == 'export':
+    if args.subcommand == 'export':    # expport jobs
+        exportDir = scf.get('Directories', 'expdir')
+        molInfo = dict(scf.items('molInfo'))
+        try:
+            molInfo['extra'] = molInfo['extra'].split(',')
+        except KeyError:
+            molInfo['extra'] = []
+
         calcId = args.calc_id
         jobs = args.jobs
         depth = args.Depth
@@ -262,8 +279,7 @@ if __name__ == '__main__':
             logger.exception('PESMan Export failed')
 
 
-    # Execute an import command
-    if args.subcommand == 'import':
+    elif args.subcommand == 'import':  # import jobs
         isZipped = args.zip
         iGl = args.ig
         isDel = args.delete
@@ -287,7 +303,25 @@ if __name__ == '__main__':
 
 
 
-    if args.subcommand=='zip':
+    elif args.subcommand == 'addcalc': # add calculation infos
+        names = map(str.strip, scf.get('CalcTypes','type').split(','))
+        templates = map(str.strip, scf.get('CalcTypes','template').split(','))
+        try:
+            desc = map(str.strip, scf.get('CalcTypes','desc').split(','))
+        except: # description field not found
+            desc = ''
+
+        with sqlite3.connect(db) as con: 
+            cur = con.cursor()
+            for nam, tem, des in izl(names, templates, desc, fillvalue=''):
+                stemp = open(tem).read()
+                cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))
+                print "Template : '{}' inserted into database".format(nam)
+            for row in cur.execute("SELECT * FROM CalcInfo"):  print row
+
+
+
+    elif args.subcommand=='zip': # archive directiories
         paths = args.d 
         allPat = args.all 
         for path in paths: # if d not provided, its empty anyway
@@ -302,16 +336,17 @@ if __name__ == '__main__':
 
 
 
-    if args.subcommand=='unzip':
+    elif args.subcommand=='unzip': # unarchive directories
         for path in args.f:
             unZipOne(path)
         if args.all:
             unzipAll(args.all)
 
 
-    if args.subcommand== 'delete':
+
+    elif args.subcommand== 'delete': # delete data
         calcId = args.cid
-        gid = args.gid 
+        gid = args.gid
         logger.debug('Deleting GeomIds: {}'.format(gid))
         geomIdList = []
         for ll in gid:
@@ -321,5 +356,30 @@ if __name__ == '__main__':
             geomIdList.extend(c)
         deleteCalcs(dB, pesDir, calcId, geomIdList)
 
-    if args.subcommand =='status':
+
+
+    elif args.subcommand =='status': # check pesman status
         status(dB)
+
+
+
+# use this code to check if the neighbour path sequence breaks somewhere in database
+# import sqlite3
+
+# con = sqlite3.connect('no2_db.db')
+# cur = con.cursor()
+
+# cur.execute('select id,nbr from geometry')
+# allGeom = [[i, map(int,j.split())] for i,j in cur]
+
+# doneGeom = {1}  # initial start id
+# noNbr = []
+# for geom,nbr in allGeom:
+#     if geom in doneGeom: continue
+#     for nn in nbr:
+#         if nn in doneGeom:
+#             doneGeom.add(geom)
+#             break
+#     else:
+#         print geom
+#         doneGeom.add(geom)

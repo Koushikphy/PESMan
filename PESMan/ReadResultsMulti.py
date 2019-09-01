@@ -8,10 +8,10 @@ def main(db, ResDir):
     with sqlite3.connect(db) as con:
         cur = con.cursor()
         cur.execute("SELECT geomid,results from Calc where CalcId=1")
-        CalcRow = [[i[0]]+i[1].split()[:2] for i in cur.fetchall()]
+        CalcRow = [[i[0]]+i[1].split() for i in cur.fetchall()]
         CalcRow = np.array(CalcRow, dtype=np.float64)
 
-        cur.execute("SELECT id,rho,theta,phi from Geometry ")
+        cur.execute("SELECT id,rho,theta,phi from Geometry ")   #<<<<---- change this according to the system
         GeomRow = np.array(cur.fetchall())
 
     # This is the list of indexes in geomrow corresponding to the id in calcrow

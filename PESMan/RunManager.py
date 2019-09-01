@@ -1,4 +1,4 @@
-import re 
+import re
 import os
 import sys
 import shutil
@@ -16,7 +16,7 @@ from ReadResultsMulti import main as readResult
 calcId            = 1
 depth             = 0
 maxJobs           = 2
-raedResultsStep   = 25
+readResultsStep   = 25
 constraint        = None
 includePath       = False
 ignoreFiles       = []
@@ -24,19 +24,17 @@ deleteAfterImport = True
 zipAfterImport    = True
 stdOut            = False
 
-templ = None
-gidList = []
-sidList = []
-jobs = 1
+templ    = None
+gidList  = []
+sidList  = []
+jobs     = 1
 iterFile = 'IterMultiJobs.dat'
 #############################################
 
 
 
 
-
 # checks for iteration number for import to start
-# import will occur only if this function returns None
 def parseIteration(thisImpDir, eId, expEdDir):
     outFile ='{0}/{1}/{1}.out'.format(thisImpDir, expEdDir)
     gId = re.findall('geom(\d+)-', expEdDir)[0]   # parse goem id, just for note
@@ -65,9 +63,8 @@ class MyFormatter(logging.Formatter):
 def makeLogger(logFile, stdout=False):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(logFile)
-    fh.setLevel(logging.DEBUG)
     formatter = MyFormatter()
+    fh = logging.FileHandler(logFile)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     # fht = TimedRotatingFileHandler(logFile, when="midnight",backupCount=5)
@@ -84,11 +81,11 @@ def makeLogger(logFile, stdout=False):
 scf= SafeConfigParser()
 scf.read('pesman.config')
 
-dB = scf.get('DataBase', 'db')
-pesDir = scf.get('Directories', 'pesdir')
-expDir = scf.get('Directories', 'expdir')
-runDir = scf.get('Directories', 'rundir')
-impDir = scf.get('Directories', 'impdir')
+dB      = scf.get('DataBase', 'db')
+pesDir  = scf.get('Directories', 'pesdir')
+expDir  = scf.get('Directories', 'expdir')
+runDir  = scf.get('Directories', 'rundir')
+impDir  = scf.get('Directories', 'impdir')
 logFile = scf.get('Log', 'LogFile')
 molInfo = dict(scf.items('molInfo'))
 try:
@@ -125,20 +122,19 @@ logger.debug('''Starting PESMan RunManager
         Archive            :   {}
         Delete on Import   :   {}
 ----------------------------------------------------------
-'''.format(maxJobs, calcId, depth, raedResultsStep, constraint, includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
+'''.format(maxJobs, calcId, depth, readResultsStep, constraint, includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
 
 
-# add an logger.exception
 # keeps a counter for the done jobs
-mainDirectory = os.getcwd()
 counter = 0
+mainDirectory = os.getcwd()
 try:
     for jobNo in range(1,maxJobs+1):
         logger.debug('  Starting Job No : {}\n{}'.format( jobNo, '*'*75))
         thisExpDir, exportId, expEdDir = ExportNearNbrJobs(dB, calcId, jobs, expDir,pesDir, templ, gidList, sidList, depth,
                                                             constraint, includePath, molInfo,logger)
-        # folder that contains the com file, should have exported only one job, if not rewrite inn loop
-        expEdDir = expEdDir[0]  
+        # folder that contains the com file, should have exported only one job, if not rewrite inner loop
+        expEdDir = expEdDir[0]
 
         thisRunDir = thisExpDir.replace(expDir, runDir)
         thisImpDir = thisExpDir.replace(expDir, impDir)
@@ -146,8 +142,7 @@ try:
         logger.info("Moving Files to RunDir...")
         shutil.copytree(thisExpDir, thisRunDir)
 
-
-        # section that runs the molpro, the RunJob.py file created in ImpExp is not used by runmanager
+        # section that runs the molpro. NOTE: the RunJob.py file created in ImpExp is not used by runmanager
         logger.info("Running Molpro Job...")
         os.chdir(thisRunDir+'/'+expEdDir)    # go inside the exported forlder where the `.com` file is
 
@@ -159,20 +154,18 @@ try:
             logger.info("Job Failed.\n\n")
             continue
 
-
         os.chdir(mainDirectory) # go back to main directory
 
         # shutil.move(thisRunDir, impDir)
         # NOTE: Not moving files to impdir, files will be imported directly from rundir, toggle comment to change
         thisImpDir = thisRunDir
 
-
         if parseIteration(thisImpDir, exportId, expEdDir): continue
         expFile = thisImpDir+'/export.dat'
-        ImportNearNbrJobs(dB, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport,logger)
+        ImportNearNbrJobs(dB, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
         shutil.rmtree(thisExpDir)
         counter+=1
-        if not counter%raedResultsStep:
+        if not counter%readResultsStep:
             logger.info("Reading results from database.")
             readResult(dB)
 
