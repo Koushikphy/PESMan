@@ -114,7 +114,7 @@ def status(dB):
             status+='{0}{1}{0}'.format('-'*75,'\n\t\tNo Calcs are avialable\n','-'*75)
             print(status)
             return
-        status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}\n{0}".format('-'*75,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.')
+        status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}\n{0}".format('='*75,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.')
         for i,name in enumerate(names, start=1):
             cur.execute('select sum(NumCalc) from Exports where calcid=?',(i,))
             tE = cur.fetchone()[0]
@@ -318,8 +318,12 @@ if __name__ == '__main__':
                 stemp = open(tem).read()
                 cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))
                 print "Template : '{}' inserted into database".format(nam)
-            for row in cur.execute("SELECT * FROM CalcInfo"):  print row
-
+            print "\n{0}\n{1:^10}{2:^15}{3:^20}{4:<20}\n{0}".format('='*99,'CalcType', "CalcName", "Description", 'Template')
+            for row in cur.execute("SELECT Id,Type,desc,inptempl FROM CalcInfo"):
+                row = [str(i).split('\n') for i in row]
+                for i,j,k,l in izl(*row, fillvalue=''):
+                    print '{:^10}{:^15}{:^20}{:<20}'.format(i,j,k,l)
+                print '-'*99
 
 
     elif args.subcommand=='zip': # archive directiories
