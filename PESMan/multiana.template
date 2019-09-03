@@ -2,7 +2,7 @@
 ! $F$ : basename to be substituted
 file,2,$F$.wfu
 
-basis={spd,h,avtz;spdf,f,avtz}
+basis=6-31G*
 
 symmetry,x
 

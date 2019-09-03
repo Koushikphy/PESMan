@@ -304,6 +304,7 @@ if __name__ == '__main__':
 
 
     elif args.subcommand == 'addcalc': # add calculation infos
+        import sqlite3
         names = map(str.strip, scf.get('CalcTypes','type').split(','))
         templates = map(str.strip, scf.get('CalcTypes','template').split(','))
         try:
@@ -311,7 +312,7 @@ if __name__ == '__main__':
         except: # description field not found
             desc = ''
 
-        with sqlite3.connect(db) as con: 
+        with sqlite3.connect(dB) as con: 
             cur = con.cursor()
             for nam, tem, des in izl(names, templates, desc, fillvalue=''):
                 stemp = open(tem).read()
