@@ -321,8 +321,8 @@ if __name__ == '__main__':
             print "\n{0}\n{1:^10}{2:^15}{3:^20}{4:<20}\n{0}".format('='*99,'CalcType', "CalcName", "Description", 'Template')
             for row in cur.execute("SELECT Id,Type,desc,inptempl FROM CalcInfo"):
                 row = [str(i).split('\n') for i in row]
-                for i,j,k,l in izl(*row, fillvalue=''):
-                    print '{:^10}{:^15}{:^20}{:<20}'.format(i,j,k,l)
+                for line in izl(*row, fillvalue=''):
+                    print '{:^10}{:^15}{:^20}{:<20}'.format(*line)
                 print '-'*99
 
 
@@ -369,22 +369,23 @@ if __name__ == '__main__':
 
 
 # use this code to check if the neighbour path sequence breaks somewhere in database
-# import sqlite3
+def checkBreaks(dB, sid)
+    import sqlite3
 
-# con = sqlite3.connect('no2_db.db')
-# cur = con.cursor()
+    con = sqlite3.connect(dB)
+    cur = con.cursor()
 
-# cur.execute('select id,nbr from geometry')
-# allGeom = [[i, map(int,j.split())] for i,j in cur]
+    cur.execute('select id,nbr from geometry')
+    allGeom = [[i, map(int,j.split())] for i,j in cur]
 
-# doneGeom = {1}  # initial start id
-# noNbr = []
-# for geom,nbr in allGeom:
-#     if geom in doneGeom: continue
-#     for nn in nbr:
-#         if nn in doneGeom:
-#             doneGeom.add(geom)
-#             break
-#     else:
-#         print geom
-#         doneGeom.add(geom)
+    doneGeom = {sid}  # initial start id
+    noNbr = []
+    for geom,nbr in allGeom:
+        if geom in doneGeom: continue
+        for nn in nbr:
+            if nn in doneGeom:
+                doneGeom.add(geom)
+                break
+        else:
+            print geom
+            doneGeom.add(geom)

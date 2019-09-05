@@ -6,7 +6,7 @@
 1. Create Template files for jobs.
 2. Modify `pesman.config` file.
 3. Modify `geometry.py` file according to the system details and create the object `geomObj`.
-4. Modify and run `CreateNewDbs.py` to create the databases.
+4. Modify and run `CreateNewDbs.py` to create the databases relevant to the system type.
 5. Modify `ReadResultsMulti.py` and `ReadResultsNacts.py` files for reading results from databases.
 
 ## Usage:
