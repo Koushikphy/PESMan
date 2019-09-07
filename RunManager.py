@@ -23,12 +23,14 @@ ignoreFiles       = []
 deleteAfterImport = True
 zipAfterImport    = True
 stdOut            = False
+importOnConverge  = True
+
 
 templ    = None
 gidList  = []
 sidList  = []
-jobs     = 1
 iterFile = 'IterMultiJobs.dat'
+# jobs     = 1  # one job in each iteration
 #############################################
 
 
@@ -42,11 +44,10 @@ def parseIteration(thisImpDir, eId, expEdDir):
     val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]   # parse the iteration number
     val = int(val)
     iterLog.write('{:>6}      {:>6}     {:>6}\n'.format(eId, gId, val))
-    if val<38:
-        logger.info('Number of MCSCF iteration: {}\n'.format(val))
-    else:
+    if importOnConverge and val>38:   # flag true with no convergence, skip
         logger.info('Number of MCSCF iteration: {} Skipping import.\n'.format(val))
         return True
+    logger.info('Number of MCSCF iteration: {}\n'.format(val))
 
 
 class MyFormatter(logging.Formatter):
@@ -112,6 +113,7 @@ else:
 logger.info('----------------------------------------------------------')
 logger.debug('''Starting PESMan RunManager
 ----------------------------------------------------------
+        Process ID         :   {}
         Total Jobs         :   {}
         CalcId             :   {}
         Depth              :   {}
@@ -122,7 +124,7 @@ logger.debug('''Starting PESMan RunManager
         Archive            :   {}
         Delete on Import   :   {}
 ----------------------------------------------------------
-'''.format(maxJobs, calcId, depth, readResultsStep, constraint, includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
+'''.format(os.getpgid(), maxJobs, calcId, depth, readResultsStep, constraint, includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
 
 
 # keeps a counter for the done jobs
@@ -150,11 +152,11 @@ try:
         if exitcode==0:
             logger.info("Job Successful.")
             os.rename( "{0}.calc_".format(expEdDir), "{0}.calc".format(expEdDir))    # rename .calc_ file so that it can be imported
+            os.chdir(mainDirectory) # go back to main directory
         else:
             logger.info("Job Failed.\n\n")
+            os.chdir(mainDirectory) # go back to main directory
             continue
-
-        os.chdir(mainDirectory) # go back to main directory
 
         # shutil.move(thisRunDir, impDir)
         # NOTE: Not moving files to impdir, files will be imported directly from rundir, toggle comment to change

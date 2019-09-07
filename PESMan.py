@@ -234,7 +234,7 @@ if __name__ == '__main__':
     dB = scf.get('DataBase', 'db')
     if not os.path.exists(dB) : raise Exception("DataBase %s doesn't exists"%dB)
     logFile = scf.get('Log', 'LogFile')
-    logger = makeLogger(logFile=logFile,stdout=True)
+    logger = makeLogger(logFile=logFile, stdout=True)
     pesDir = scf.get('Directories', 'pesdir')
 
 
