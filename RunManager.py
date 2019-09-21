@@ -30,7 +30,7 @@ templ    = None
 gidList  = []
 sidList  = []
 iterFile = 'IterMultiJobs.dat'
-# jobs     = 1  # one job in each iteration
+jobs     = 1  # one job in each iteration
 #############################################
 
 
@@ -124,7 +124,7 @@ logger.debug('''Starting PESMan RunManager
         Archive            :   {}
         Delete on Import   :   {}
 ----------------------------------------------------------
-'''.format(os.getpgid(), maxJobs, calcId, depth, readResultsStep, constraint, includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
+'''.format(os.getpid(), maxJobs, calcId, depth, readResultsStep, constraint, includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
 
 
 # keeps a counter for the done jobs

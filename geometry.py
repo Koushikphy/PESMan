@@ -10,6 +10,7 @@ bohr2ang = 0.529177209
 
 class Spectroscopic(object):
     def __init__(self, atoms, masses, freq, aq1, aq2, equigeom):
+        # equigeom must be in angstorm
         freq = np.array(freq)
         self.atoms = atoms
         self.masses = np.array(masses)
@@ -21,7 +22,7 @@ class Spectroscopic(object):
         aq    = np.column_stack([aq1,aq2]).reshape(len(atoms),3,2)
         msInv  = np.sqrt(1/self.masses)
         frqInv = np.sqrt(hcross/(freq*cminvtinv))
-        self.wfm = np.einsum('ijk,k,i->ijk', aq, frqInv, msInv)/ang
+        self.wfm = np.einsum('ijk,k,i->ijk', aq, frqInv, msInv)
 
 
     def getCart(self, rho, phi, deg=False):

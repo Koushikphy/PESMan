@@ -111,7 +111,7 @@ def status(dB):
         cur.execute('select type from CalcInfo')
         names = [i[0] for i in cur]
         if len(names)==0:
-            status+='{0}{1}{0}'.format('-'*75,'\n\t\tNo Calcs are avialable\n','-'*75)
+            status+='{0}{1}{0}'.format('='*75,'\n\t\tNo Calcs are avialable\n')
             print(status)
             return
         status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}\n{0}".format('='*75,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.')
@@ -368,8 +368,8 @@ if __name__ == '__main__':
 
 
 
-# use this code to check if the neighbour path sequence breaks somewhere in database
-def checkBreaks(dB, sid)
+##use this code to check if the neighbour path sequence breaks somewhere in database
+def checkBreaks(dB, sid):
     import sqlite3
 
     con = sqlite3.connect(dB)
