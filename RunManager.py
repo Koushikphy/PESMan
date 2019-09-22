@@ -7,47 +7,36 @@ import subprocess
 from datetime import datetime
 from ConfigParser import SafeConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
-from ReadResultsMulti import main as readResult
+from ReadResults import main as readResult
 # from logging.handlers import TimedRotatingFileHandler
 
 
-#################################################
-# provide user specific options
-calcId            = 1
-depth             = 0
-maxJobs           = 2
-readResultsStep   = 25
-constraint        = None
-includePath       = False
-ignoreFiles       = []
-deleteAfterImport = True
-zipAfterImport    = True
-stdOut            = False
-importOnConverge  = True
+####----------User specific options-----------#######
 
+calcId            = 1            # calculation ID
+depth             = 0            # maximum depth to look for
+maxJobs           = 2            # total number of jobs to perform
+readResultsStep   = 25           # step to read result
+constraint        = None         # geom tag constraints
+includePath       = False        # include geoms with `path` tags
+ignoreFiles       = []           # ignores the file extensions
+deleteAfterImport = True         # delete the files after successful import
+zipAfterImport    = True         # archive on save on GeomData
+stdOut            = False        # print on terminal
+importOnConverge  = True         # only import MCSCF converged results
+#-----------------------------------------------------
 
 templ    = None
 gidList  = []
 sidList  = []
-iterFile = 'IterMultiJobs.dat'
+iterFile = 'IterMultiJobs.dat' # saves the MCSCF iterations
 jobs     = 1  # one job in each iteration
 #############################################
 
 
 
 
-# checks for iteration number for import to start
-def parseIteration(thisImpDir, eId, expEdDir):
-    outFile ='{0}/{1}/{1}.out'.format(thisImpDir, expEdDir)
-    gId = re.findall('geom(\d+)-', expEdDir)[0]   # parse goem id, just for note
-    with open(outFile) as f: txt = f.read()
-    val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]   # parse the iteration number
-    val = int(val)
-    iterLog.write('{:>6}      {:>6}     {:>6}\n'.format(eId, gId, val))
-    if importOnConverge and val>38:   # flag true with no convergence, skip
-        logger.info('Number of MCSCF iteration: {} Skipping import.\n'.format(val))
-        return True
-    logger.info('Number of MCSCF iteration: {}\n'.format(val))
+
 
 
 class MyFormatter(logging.Formatter):
@@ -60,6 +49,29 @@ class MyFormatter(logging.Formatter):
         elif record.levelno == logging.DEBUG: self._fmt = "[%(asctime)s] - %(message)s"
         result = logging.Formatter.format(self, record)
         return result
+
+
+
+# checks for iteration number for import to start
+def parseIteration(thisImpDir, eId, expEdDir):
+    outFile ='{0}/{1}/{1}.out'.format(thisImpDir, expEdDir)
+    gId = re.findall('geom(\d+)-', expEdDir)[0]   # parse goem id, just for note
+    try:
+        with open(outFile) as f: txt = f.read()
+        val = re.findall('\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]   # parse the iteration number
+        val = int(val)
+    except:
+        import traceback
+        logger.info('Failed to parse MCSCF iteration. %s'%traceback.format_exc())
+        return
+    iterLog.write('{:>6}      {:>6}     {:>6}\n'.format(eId, gId, val))
+    if importOnConverge and val>38:   # flag true with no convergence, skip
+        logger.info('Number of MCSCF iteration: {} Skipping import.\n'.format(val))
+        return True
+    logger.info('Number of MCSCF iteration: {}\n'.format(val))
+
+
+
 
 def makeLogger(logFile, stdout=False):
     logger = logging.getLogger(__name__)
@@ -75,6 +87,7 @@ def makeLogger(logFile, stdout=False):
         ch.setFormatter(formatter)
         logger.addHandler(ch)
     return logger
+
 
 
 
@@ -144,24 +157,27 @@ try:
         logger.info("Moving Files to RunDir...")
         shutil.copytree(thisExpDir, thisRunDir)
 
-        # section that runs the molpro. NOTE: the RunJob.py file created in ImpExp is not used by runmanager
+        # section that runs the molpro. !NOTE: the `RunJob.py` file created in ImpExp is not used by runmanager
         logger.info("Running Molpro Job...")
-        os.chdir(thisRunDir+'/'+expEdDir)    # go inside the exported forlder where the `.com` file is
 
+        os.chdir(thisRunDir+'/'+expEdDir)    # go inside the exported forlder where the `.com` file is
         exitcode = subprocess.call(["molpro", "-d", molInfo['scrdir'], "-W .", "-n", molInfo['proc'], expEdDir+'.com'] + molInfo['extra'])
+        os.chdir(mainDirectory)              # go back to main directory
+
         if exitcode==0:
             logger.info("Job Successful.")
-            os.rename( "{0}.calc_".format(expEdDir), "{0}.calc".format(expEdDir))    # rename .calc_ file so that it can be imported
-            os.chdir(mainDirectory) # go back to main directory
+            file = "{0}/{1}/{1}.calc_".format(thisRunDir, expEdDir)
+            os.rename( file+'_', file)    # rename .calc_ file so that it can be imported
         else:
             logger.info("Job Failed.\n\n")
-            os.chdir(mainDirectory) # go back to main directory
             continue
 
         # shutil.move(thisRunDir, impDir)
         # NOTE: Not moving files to impdir, files will be imported directly from rundir, toggle comment to change
         thisImpDir = thisRunDir
 
+        # checks and saves MCSCF iteration in `iterLog`
+        # blocks the import if `importOnConverge` is ON
         if parseIteration(thisImpDir, exportId, expEdDir): continue
         expFile = thisImpDir+'/export.dat'
         ImportNearNbrJobs(dB, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
@@ -169,10 +185,10 @@ try:
         counter+=1
         if not counter%readResultsStep:
             logger.info("Reading results from database.")
-            readResult(dB)
+            readResult()
 
     logger.info("Reading results from database...")
-    readResult(dB)
+    readResult()
     logger.info("Total number of successful jobs done : {}\n{}\n".format(counter, '*'*75))
 except AssertionError as e:
     logger.info('PESMan RunManager Stopped. %s'%e)

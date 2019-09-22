@@ -7,7 +7,7 @@
 2. Modify `pesman.config` file.
 3. Modify `geometry.py` file according to the system details and create the object `geomObj`.
 4. Modify and run `CreateNewDbs.py` to create the databases relevant to the system type.
-5. Modify `ReadResultsMulti.py` and `ReadResultsNacts.py` files for reading results from databases.
+5. Modify `main` function in `ReadResults.py` files for reading results from databases.
 
 ## Usage:
 * Use PESMan `export` to export job.

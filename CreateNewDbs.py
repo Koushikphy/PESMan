@@ -1,4 +1,4 @@
-# The schema for format of new data base for main data base is as follows
+
 import os
 import sqlite3
 import numpy as np
@@ -7,7 +7,7 @@ from multiprocessing import Pool
 from ConfigParser import SafeConfigParser
 
 
-# Primarily written for a Jacobi system, modify likewise
+
 sql_script = """
 BEGIN TRANSACTION;
 CREATE TABLE Geometry(
@@ -136,7 +136,7 @@ def getKabsch_norm(geom):
 
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
-    # read database names from (hardcoded here) `pesman.config`
+
     scf = SafeConfigParser()
     scf.read('pesman.config')
     dbFile = scf.get('DataBase', 'db')

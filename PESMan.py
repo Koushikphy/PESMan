@@ -7,8 +7,8 @@ import tarfile
 import argparse
 import textwrap
 from itertools import izip_longest as izl
-from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 from ConfigParser import SafeConfigParser
+from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
 # from logging.handlers import TimedRotatingFileHandler
 
 
@@ -369,6 +369,7 @@ if __name__ == '__main__':
 
 
 ##use this code to check if the neighbour path sequence breaks somewhere in database
+# starting from `sid`
 def checkBreaks(dB, sid):
     import sqlite3
 

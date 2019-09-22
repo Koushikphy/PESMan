@@ -1,9 +1,9 @@
 import numpy as np
 
-hcross = 0.063508
+hcross    = 0.063508
 cminvtinv = 0.001883651
-ang= 0.529177209
-bohr2ang = 0.529177209
+ang       = 0.529177209
+bohr2ang  = 0.529177209
 
 
 
@@ -11,17 +11,17 @@ bohr2ang = 0.529177209
 class Spectroscopic(object):
     def __init__(self, atoms, masses, freq, aq1, aq2, equigeom):
         # equigeom must be in angstorm
-        freq = np.array(freq)
-        self.atoms = atoms
-        self.masses = np.array(masses)
+        freq          = np.array(freq)
+        self.atoms    = atoms
+        self.masses   = np.array(masses)
         self.equigeom = np.array(equigeom)
         self.parseData(freq,aq1,aq2)
 
 
     def parseData(self, freq, aq1, aq2):
-        aq    = np.column_stack([aq1,aq2]).reshape(len(atoms),3,2)
-        msInv  = np.sqrt(1/self.masses)
-        frqInv = np.sqrt(hcross/(freq*cminvtinv))
+        aq       = np.column_stack([aq1,aq2]).reshape(len(atoms),3,2)
+        msInv    = np.sqrt(1/self.masses)
+        frqInv   = np.sqrt(hcross/(freq*cminvtinv))
         self.wfm = np.einsum('ijk,k,i->ijk', aq, frqInv, msInv)
 
 
@@ -32,9 +32,9 @@ class Spectroscopic(object):
     
     def createXYZfile(self, geomRow, filename, rad=True):
         # this function is called from impexp during export with geomrow as a dictionary
-        rho = geomRow["rho"]
-        phi = geomRow["phi"]
-        gId = geomRow["Id"]
+        rho     = geomRow["rho"]
+        phi     = geomRow["phi"]
+        gId     = geomRow["Id"]
         curGeom = self.getCart(rho,phi)
         if rad:
             phi = np.rad2deg(phi)
@@ -46,7 +46,7 @@ class Spectroscopic(object):
 
 class Scattering(object):
     def __init__(self, atoms, masses):
-        self.atoms = atoms
+        self.atoms  = atoms
         self.masses = masses
 
 
@@ -60,10 +60,10 @@ class Scattering(object):
 
     def createXYZfile(self, geomRow, filename, rad=True):
         # rad true means the values in database are in degree
-        rho = geomRow["rho"]
-        theta = geomRow["theta"]
-        phi = geomRow["phi"]
-        gId = geomRow["Id"]
+        rho     = geomRow["rho"]
+        theta   = geomRow["theta"]
+        phi     = geomRow["phi"]
+        gId     = geomRow["Id"]
         curGeom = self.getCart(rho, theta, phi)
         if rad:
             theta = np.rad2deg(theta)
@@ -89,16 +89,16 @@ class Scattering(object):
         """  returns jacobi coordinates """
         m1, m2, m3 = self.masses
 
-        M = m1 + m2 + m3
-        mu = np.sqrt(m1*m2*m3/M)
-        d1 = np.sqrt(m1*(m2+m3)/(mu*M))
-        d2 = np.sqrt(m2*(m3+m1)/(mu*M))
-        d3 = np.sqrt(m3*(m1+m2)/(mu*M))
+        M    = m1 + m2 + m3
+        mu   = np.sqrt(m1*m2*m3/M)
+        d1   = np.sqrt(m1*(m2+m3)/(mu*M))
+        d2   = np.sqrt(m2*(m3+m1)/(mu*M))
+        d3   = np.sqrt(m3*(m1+m2)/(mu*M))
         eps3 = 2 * np.arctan(m2/mu)
         eps2 = 2 * np.arctan(m3/mu)
-        R1 = (1.0/np.sqrt(2.0))*rho*d3*np.sqrt(1.0+ np.sin(theta)*np.cos(phi+eps3)) 
-        R2 = (1.0/np.sqrt(2.0))*rho*d1*np.sqrt(1.0+ np.sin(theta)*np.cos(phi))      
-        R3 = (1.0/np.sqrt(2.0))*rho*d2*np.sqrt(1.0+ np.sin(theta)*np.cos(phi-eps2)) 
+        R1   = (1.0/np.sqrt(2.0))*rho*d3*np.sqrt(1.0+ np.sin(theta)*np.cos(phi+eps3))
+        R2   = (1.0/np.sqrt(2.0))*rho*d1*np.sqrt(1.0+ np.sin(theta)*np.cos(phi))
+        R3   = (1.0/np.sqrt(2.0))*rho*d2*np.sqrt(1.0+ np.sin(theta)*np.cos(phi-eps2))
 
         if R1 < 1e-10:
             R1 = 0.0
@@ -212,11 +212,11 @@ class Jacobi(object):
 # atoms = ["F","H", "H"]
 # masses= [19.0,1.0,1.0]
 # geomObj = Scattering(atoms, masses)
-aq1   = [0.0000000, 0.6167049, 0.0000000, 0.4760237,-0.2885117, 0.0000000,-0.4760237,-0.2885117, 0.0000000] 
-aq2   = [0.8122235, 0.0000000, 0.0000000,-0.3799808,-0.1605027, 0.0000000,-0.3799808, 0.1605027, 0.0000000]
-freq  = [759.61,1687.70 ]
-masses  = [14.006700, 15.999400, 15.999400]
-atoms = ["N", "O", "O"]
+aq1      = [0.0000000, 0.6167049, 0.0000000, 0.4760237,-0.2885117, 0.0000000,-0.4760237,-0.2885117, 0.0000000]
+aq2      = [0.8122235, 0.0000000, 0.0000000,-0.3799808,-0.1605027, 0.0000000,-0.3799808, 0.1605027, 0.0000000]
+freq     = [759.61,1687.70 ]
+masses   = [14.006700, 15.999400, 15.999400]
+atoms    = ["N", "O", "O"]
 equigeom = [[ -0.0000000000, 0.0073802030,0.0000000000], [1.1045635392, 0.4739443250, 0.0000000000], [-1.1045635392, 0.4739443250, 0.0000000000]]
 
 geomObj = Spectroscopic(atoms, masses, freq, aq1, aq2, equigeom)
