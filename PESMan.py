@@ -105,9 +105,9 @@ def status(dB):
     import sqlite3
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
-        status = '-'*75+'\033[91m\n\033[4mPESMan Status:\033[0m\t\t'
+        status = '-'*75+'\033[31m\n\033[5m\033[4mPESMan Status:\033[0m\t\t'
         cur.execute('select count(id) from Geometry')
-        status+= 'Total number of geometries: {}\n'.format(cur.fetchone()[0])
+        status+= '\033[35m\033[4mTotal number of geometries: {}\033[0m\n'.format(cur.fetchone()[0])
         cur.execute('select type from CalcInfo')
         names = [i[0] for i in cur]
         if len(names)==0:

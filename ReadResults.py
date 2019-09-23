@@ -49,11 +49,15 @@ def parseEnr(resArr, resDir):
 # bohr inverse to angstorm inverse ???
 def parseNACTspecAna(resArr, pairs, atoms):
     wfm = geomObj.wfm
+    
     # wfm is in shape of (masses, frequencies (i.e 2), coordinates (i.e. 3; x,y,z))
     # given each result string holdes the gradiend data for all the ireps/pairs
     # gradRes is in shape of (rows, pairs/ireps, atoms, coord)
     gradRes = resArr[:,2:].reshape(-1,pairs,atoms,3)
     rhoPhi  = resArr[:,:2]
+
+    angtobohr    = 1.8897259886
+    gradRes     *= gradRes*angtobohr
 
     # Total tau, square and element wise sum of the innermost two axis
     tau = np.einsum('ijkl,ijkl->ij', gradRes, gradRes)
@@ -126,7 +130,7 @@ def main():
 
     # now process the result for energy or nact 
     # according to the system type and save them in file
-    parseEnr(resArr, resDir='Results')
+    parseEnr(resArr, resDir='Results_files_Multi')
 
 
 
