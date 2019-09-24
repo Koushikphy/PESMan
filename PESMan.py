@@ -105,23 +105,25 @@ def status(dB):
     import sqlite3
     with sqlite3.connect(dB) as con:
         cur = con.cursor()
-        status = '-'*75+'\033[31m\n\033[5m\033[4mPESMan Status:\033[0m\t\t'
+        status = '-'*90+'\033[31m\n\033[5m\033[4mPESMan Status:\033[0m\t\t'
         cur.execute('select count(id) from Geometry')
         status+= '\033[35m\033[4mTotal number of geometries: {}\033[0m\n'.format(cur.fetchone()[0])
         cur.execute('select type from CalcInfo')
         names = [i[0] for i in cur]
         if len(names)==0:
-            status+='{0}{1}{0}'.format('='*75,'\n\t\tNo Calcs are avialable\n')
+            status+='{0}{1}{0}'.format('='*90,'\n\t\tNo Calcs are avialable\n')
             print(status)
             return
-        status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}\n{0}".format('='*75,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.')
+        status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}|{5:^20}\n{0}".format('='*90,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.', 'Jobs in ExpCalc')
         for i,name in enumerate(names, start=1):
             cur.execute('select sum(NumCalc) from Exports where calcid=?',(i,))
             tE = cur.fetchone()[0]
             cur.execute('select sum(NumCalc) from Exports where calcid=? and status=1',(i,))
             tD = cur.fetchone()[0]
-            status +="\n{:^10}|{:^13}|{:^20}|{:^20}\n".format(i,name,tE,tD)
-        print(status+'-'*75)
+            cur.execute('select count(*) from ExpCalc where calcid=?',(i,))
+            tEx = cur.fetchone()[0]
+            status +="\n{:^10}|{:^13}|{:^20}|{:^20}|{:^20}\n{}".format(i,name,tE,tD,tEx,'-'*90)
+        print(status)
 
 
 

@@ -321,7 +321,7 @@ for RunDir in expDirs:
 
     os.chdir(RunDir)
 
-    exitcode = subprocess.call(["molpro", "-d", {}, "-W .", "-n", {}, {}] + extra)
+    exitcode = subprocess.call(["molpro",fComBaseFile, "-d", "{}", "-W .", "-n", "{}"] + "{}")
     os.chdir(mainDirectory)
 
     if exitcode == 0:
