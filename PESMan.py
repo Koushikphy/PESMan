@@ -101,6 +101,8 @@ def deleteCalcs(dB, pesDir, calcId, geomIdList):
             print("CalcId = {}, GeomId = {} deleted from CalcTable and GeomData".format(calcId,geomId))
 
 
+
+
 def status(dB):
     import sqlite3
     with sqlite3.connect(dB) as con:
@@ -219,8 +221,9 @@ parser_unzip.add_argument('-all' ,metavar="ROOT",nargs='?',const='.', type=str, 
 
 
 parser_delete = subparsers.add_parser('delete', description='Delete one/multiple geometry data\n ', help= 'Delete one/multiple geometry data',formatter_class=argparse.RawTextHelpFormatter,)
-parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
+parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
+
 
 
 
@@ -392,3 +395,59 @@ def checkBreaks(dB, sid):
         else:
             print geom
             doneGeom.add(geom)
+
+
+
+'''
+#!/usr/bin/python
+import os, subprocess
+from datetime import datetime
+from multiprocessing import Pool
+
+
+
+
+# first open export.dat file and collect information about exported jobs
+with open("export.dat",'r') as f:
+    expDirs = f.read().split("\n",1)[1].split()[1:]
+
+mainDirectory = os.getcwd()
+fLog = open("run.log","a", buffering=1)
+
+
+def writeLog(msg): # writes to the log file
+    msg = datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg+'\n'
+    fLog.write(msg)
+
+# now execute each job
+def runMol(RunDir):
+    if os.path.isfile("{0}/{0}.calc".format(RunDir)):
+        writeLog("Job already done for "+RunDir)
+        return
+    elif os.path.isfile("{0}/{0}.calc_".format(RunDir)):
+        writeLog("Job Started for   "+RunDir)
+    else:
+      raise Exception("No '.calc' or '.calc_' file found in {}".format(RunDir))
+    fComBaseFile = RunDir + ".com"
+    os.chdir(RunDir)  # will be run on 1 processor
+    exitcode = subprocess.call(["molpro", fComBaseFile, "-d", '/tmp/fh2te', "-W ."] +['--no-xml-output'])
+    os.chdir(mainDirectory)
+
+    if exitcode == 0:
+        writeLog("Job Successful for "+ RunDir)
+        os.rename( "{0}/{0}.calc_".format(RunDir), "{0}/{0}.calc".format(RunDir))    # rename .calc_ file so that it can be imported
+    else:
+        writeLog("Job Failed" + RunDir)
+
+
+
+if __name__=='__main__':
+    p = Pool()   #< put any number for processor
+    p.map(runMol,expDirs)
+
+
+
+writeLog("All Jobs Completed\n"+"-"*90)
+fLog.close()
+
+'''
