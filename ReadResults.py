@@ -8,7 +8,7 @@ from ConfigParser import SafeConfigParser
 
 def saveData(file, data):
     np.savetxt( file, data ,delimiter="\t", fmt="%.8f") 
-    gRes.write('\n')
+    file.write('\n')
 
 
 
@@ -57,7 +57,7 @@ def parseNACTspecAna(resArr, pairs, atoms):
     rhoPhi  = resArr[:,:2]
 
     angtobohr    = 1.8897259886
-    gradRes     *= gradRes*angtobohr
+    gradRes     *= angtobohr
 
     # Total tau, square and element wise sum of the innermost two axis
     tau = np.einsum('ijkl,ijkl->ij', gradRes, gradRes)

@@ -120,7 +120,7 @@ def status(dB):
         for i,name in enumerate(names, start=1):
             cur.execute('select sum(NumCalc) from Exports where calcid=?',(i,))
             tE = cur.fetchone()[0]
-            cur.execute('select sum(NumCalc) from Exports where calcid=? and status=1',(i,))
+            cur.execute('select count(*) from calc where calcid=?',(i,))
             tD = cur.fetchone()[0]
             cur.execute('select count(*) from ExpCalc where calcid=?',(i,))
             tEx = cur.fetchone()[0]
