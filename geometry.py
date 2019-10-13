@@ -29,7 +29,7 @@ class Spectroscopic(object):
         if deg: phi = np.deg2rad(phi)
         qCord = [rho*np.cos(phi), rho*np.sin(phi)]
         return self.equigeom + np.einsum('ijk,k->ij',self.wfm, qCord)
-    
+
     def createXYZfile(self, geomRow, filename, rad=True):
         # this function is called from impexp during export with geomrow as a dictionary
         rho     = geomRow["rho"]

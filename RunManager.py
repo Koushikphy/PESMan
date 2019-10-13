@@ -166,7 +166,7 @@ try:
 
         if exitcode==0:
             logger.info("Job Successful.")
-            file = "{0}/{1}/{1}.calc_".format(thisRunDir, expEdDir)
+            file = "{0}/{1}/{1}.calc".format(thisRunDir, expEdDir)
             os.rename( file+'_', file)    # rename .calc_ file so that it can be imported
         else:
             logger.info("Job Failed.\n\n")

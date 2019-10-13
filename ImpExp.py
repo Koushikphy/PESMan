@@ -271,13 +271,13 @@ def ImportCalc(cur,calcDir,calcFile,pesaDir,ignoreList, zipped):
     destCalcDir = "{}/{}/{}".format(pesaDir, b, a)
     fRes = "{}/{}.res".format(calcDir, dCalc['Basename'])
     sResults = parseResult(fRes)
-    if not os.path.exists(destCalcDir):  os.makedirs(destCalcDir)
+    if not os.path.exists(destCalcDir):  os.makedirs(destCalcDir)  # this should not exists though
 
     tcalc = (dCalc["GeomId"],dCalc["CalcId"], destCalcDir, dCalc["StartGId"],sResults)
     cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", tcalc)
 
     for iFile in glob("{}/*.*".format(calcDir)):
-        if os.path.splitext(iFile)[1] in ignoreList: continue                   # copy all file except for ones ignore list
+        if os.path.splitext(iFile)[1][1:] in ignoreList: continue                   # copy all file except for ones ignore list
         oFile = destCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile))   # rename file, `multinact2-geom111-1` -> `multinact2-geom111`
         shutil.copy(iFile, oFile)
     if zipped:                                                                  # archive the folder if specified
@@ -317,10 +317,9 @@ for RunDir in expDirs:
         writeLog(fLog, "Running Job for "+RunDir)
     else:
         raise Exception("No '.calc' or '.calc_' file found in {{}}".format(RunDir))
-    fComBaseFile = RunDir + ".com"
+    fComBaseFile = RunDir+".com"
 
     os.chdir(RunDir)
-
     exitcode = subprocess.call(["molpro",fComBaseFile, "-d", "{}", "-W .", "-n", "{}"] + "{}")
     os.chdir(mainDirectory)
 

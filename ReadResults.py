@@ -38,8 +38,6 @@ def parseEnr(resArr, resDir):
     gRes = open(resDir+'/Enr.dat', "wb")
     for rho in np.unique(resArr[:,0]):
         rhoBlock = resArr[resArr[:,0]==rho]
-        # sRes = "{}/Enr_rho-{}.dat".format(resDir, rho)
-        # np.savetxt( sRes, rhoBlock ,delimiter="\t", fmt=str("%.8f")) 
         saveData(gRes, rhoBlock)
     gRes.close()
 
