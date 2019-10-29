@@ -124,7 +124,7 @@ def main():
     dB = scf.get('DataBase', 'db')
 
     # read the result from database
-    resArr = readDB(db, calcId=1, cols='rho,theta,phi')
+    resArr = readDB(dB, calcId=1, cols='rho,theta,phi')
 
     # now process the result for energy or nact 
     # according to the system type and save them in file

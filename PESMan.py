@@ -82,14 +82,16 @@ def deleteCalcs(dB, pesDir, calcId, geomIdList):
         cur = con.cursor()
 
         cur.execute('select geomid from expcalc' + geomStr)
-        for (geomId,) in cur:
+        geomList = cur.fetchall()
+        for (geomId,) in geomList:
             cur.execute('delete from expcalc where geomid = ? and calcid = ?',(geomId,calcId))
             print("CalcId = {}, GeomId = {} deleted from ExpCalc Table".format(calcId,geomId))
 
         cur.execute('select type from CalcInfo where id=?',(calcId,))
         calcName = cur.fetchone()[0]
         cur.execute('select geomid from calc' + geomStr)
-        for (geomId,) in cur:
+        geomList = cur.fetchall()
+        for (geomId,) in geomList:
             dirToRemove = '{}/geom{}/{}{}'.format(pesDir, geomId,calcName, calcId)
             if os.path.isdir(dirToRemove): # geomdata is in folder format
                 shutil.rmtree(dirToRemove)
