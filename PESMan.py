@@ -309,7 +309,6 @@ if __name__ == '__main__':
             logger.exception('PESMan import failed')
 
 
-
     elif args.subcommand == 'addcalc': # add calculation infos
         import sqlite3
         names = map(str.strip, scf.get('CalcTypes','type').split(','))
@@ -347,13 +346,11 @@ if __name__ == '__main__':
             zipAll(allPat)
 
 
-
     elif args.subcommand=='unzip': # unarchive directories
         for path in args.f:
             unZipOne(path)
         if args.all:
             unzipAll(args.all)
-
 
 
     elif args.subcommand== 'delete': # delete data
@@ -369,10 +366,8 @@ if __name__ == '__main__':
         deleteCalcs(dB, pesDir, calcId, geomIdList)
 
 
-
     elif args.subcommand =='status': # check pesman status
         status(dB)
-
 
 
 ##use this code to check if the neighbour path sequence breaks somewhere in database
@@ -399,14 +394,13 @@ def checkBreaks(dB, sid):
             doneGeom.add(geom)
 
 
-
+# use the following code in run.log to run multiple jobs in parallel
 '''
 #!/usr/bin/python
+
 import os, subprocess
 from datetime import datetime
 from multiprocessing import Pool
-
-
 
 
 # first open export.dat file and collect information about exported jobs
@@ -447,9 +441,5 @@ if __name__=='__main__':
     p = Pool()   #< put any number for processor
     p.map(runMol,expDirs)
 
-
-
 writeLog("All Jobs Completed\n"+"-"*90)
-fLog.close()
-
-'''
+fLog.close()'''

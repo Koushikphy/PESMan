@@ -126,7 +126,7 @@ def main():
     # read the result from database
     resArr = readDB(dB, calcId=1, cols='rho,theta,phi')
 
-    # now process the result for energy or nact 
+    # now process the result for energy or nact
     # according to the system type and save them in file
     parseEnr(resArr, resDir='Results_files_Multi')
 
