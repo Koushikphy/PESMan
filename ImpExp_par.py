@@ -5,6 +5,9 @@ import tarfile
 import sqlite3
 from glob import glob
 from geometry import geomObj
+from multiprocessing import Pool
+
+
 # initiate the geometry object inside the geometry file and call the methods from there
 
 def parseResult(file):
@@ -26,6 +29,12 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
     Desc     : {}""".format(CalcId,GeomId,CalcName,Basename,sid,Desc)
     with open(fileName, "w") as f:
         f.write(txt)
+
+
+def helper_export(arg):
+    return ExportCalc(*arg)
+
+pool = Pool(processes=4)
 
 
 def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo,logger):
@@ -52,10 +61,11 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidLi
         os.makedirs(expDir)
 
         expDirs = []
+        temp = []
         for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1):
-            logger.info('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
-            bName = ExportCalc(cur, GeomId, calcId,pesDir,expDir, InfoRow, templ, StartId=StartCalcId, BaseSuffix=str(ind))
-            expDirs.append(bName)
+            temp.append([dB, GeomId, calcId,pesDir,expDir, templ, StartCalcId, str(ind)])
+
+        expDirs = pool.map(helper_export, temp)
 
         # update the export table and expcalc tables with the exported jobs
         expGeomIds = [i for i,_ in ExpGeomList]
@@ -168,26 +178,29 @@ def GetExpMrciNactJobs(dB, calcId, jobs, constDb):
     return expGClist
 
 
-def ExportCalc(cur, geomId, calcId, pesaDir, expDir, InfoRow, ComTemplate, StartId, BaseSuffix):
+def ExportCalc(dB, geomId, calcId, pesaDir, expDir, ComTemplate, StartId, BaseSuffix):
+    print 'Exporting Job No {} with GeomId {}'.format(BaseSuffix, geomId)
+    with sqlite3.connect(dB) as con:
+        con.row_factory=sqlite3.Row
+        cur = con.cursor()
+        cur.execute('SELECT * from Geometry WHERE Id=?',(geomId,))
+        GeomRow = cur.fetchone()
+        cur.execute('SELECT * from CalcInfo WHERE Id=?',(calcId,))
+        InfoRow = cur.fetchone()
+        if ComTemplate:                     # if template given use that, o/w use from calcinfo table
+            with open(ComTemplate,'r') as f: InpTempl = f.read()
+        else:
+            InpTempl = InfoRow["InpTempl"]
 
-    # get the geometry
-    cur.execute('SELECT * from Geometry WHERE Id=?',(geomId,))
-    GeomRow = cur.fetchone()
-
-    if ComTemplate:                     # if template given use that, o/w use from calcinfo table
-        with open(ComTemplate,'r') as f: InpTempl = f.read()
-    else:
-        InpTempl = InfoRow["InpTempl"]
-
-    if StartId:                         # non-zero StartId , collect necessary things from calc table
-        cur.execute('SELECT * from Calc WHERE Id=?',(StartId,))
-        calcRow = cur.fetchone()
-        StartGId = calcRow["GeomId"]
-        StartDir = calcRow["Dir"]
-        c,a,b = StartDir.split("/")     # StartDir -> GeomData/geom1/multi1; StartBaseName -> multi1-geom1
-        StartBaseName = "{}-{}".format(b,a)
-    else:
-        StartGId = 0
+        if StartId:                         # non-zero StartId , collect necessary things from calc table
+            cur.execute('SELECT * from Calc WHERE Id=?',(StartId,))
+            calcRow = cur.fetchone()
+            StartGId = calcRow["GeomId"]
+            StartDir = calcRow["Dir"]
+            c,a,b = StartDir.split("/")     # StartDir -> GeomData/geom1/multi1; StartBaseName -> multi1-geom1
+            StartBaseName = "{}-{}".format(b,a)
+        else:
+            StartGId = 0
 
     BaseName = "{}{}-geom{}-".format(InfoRow["Type"], calcId, geomId) + BaseSuffix
     ExportDir = expDir + "/" + BaseName
@@ -210,8 +223,8 @@ def ExportCalc(cur, geomId, calcId, pesaDir, expDir, InfoRow, ComTemplate, Start
     # generate molpro input file
     fInp = '{}/{}.com'.format(ExportDir,BaseName)
     with open(fInp,'w') as f: f.write(txt)
-
     return BaseName
+
 
 
 def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped, logger):
