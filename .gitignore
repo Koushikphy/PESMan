@@ -1,9 +1,0 @@
-*.pyc
-ExpDir
-GeomData
-RunDir
-ImpDir
-*.nbi
-*.nbc
-.vscode
-*.log

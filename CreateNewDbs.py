@@ -93,8 +93,8 @@ def getKabsch(geom):
     #accessing the full geomList and cartesians from the global scope
     # WARNING !!! Do not use this approach with multiprocessing in windows systems
     vGeomIndex =np.where(                               # return indexes where the geometries satisfies the condition
-                    (geomList[:,1]  >= geom[1]-ranges[0]) &
-                    (geomList[:,1]  <= geom[1]+ranges[0]) &
+                    # (geomList[:,1]  >= geom[1]-ranges[0]) &   # commenting rho range check for hyper
+                    # (geomList[:,1]  <= geom[1]+ranges[0]) &
                     (geomList[:,2]  >= geom[2]-ranges[1]) &
                     (geomList[:,2]  <= geom[2]+ranges[1]) &
                     (geomList[:,3]  >= geom[3]-ranges[2]) &
@@ -146,65 +146,66 @@ if __name__ == "__main__":
     lim = 30
 
     # #%%%%%%%%%%%%%%%%%%%%%%%%%% for scattering hyperspherical %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # sql_script = sql_script.replace('$$', 'rho REAL,\ntheta REAL,\nphi REAL,')
-    # ranges = [4.5,np.deg2rad(30),np.deg2rad(30)]
+    sql_script = sql_script.replace('$$', 'rho REAL,\ntheta REAL,\nphi REAL,')
+    rho = 2.5
+    ranges = [4.5,np.deg2rad(30),np.deg2rad(30)]
 
-    # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
-    #     os.remove(dbFile)
-    #     dbExist = False
-    # if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
-    #     os.remove(nbrDbFile)
-
-
-    # with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
-    #     if not dbExist:
-    #         cur = con.cursor()
-    #         cur.executescript(sql_script)
-
-    #     curNbr = conNbr.cursor()
-    #     curNbr.executescript(sql_nbrtable_commands)
-
-    #     # create the geometry list here
-    #     newGeomList =np.stack( np.mgrid[2.0:2.0:1j, 0:10:101j, 0:90:19j], axis=3).reshape(-1,3)
-    #     newGeomList[:,1:] = np.deg2rad(newGeomList[:,1:])
-    #     # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
-    #     # if dbExist: 
-    #     #     cur.execute('select rho,phi from geometry')
-    #     #     oldTable = np.array(cur.fetchall())
-    #     #     if oldTable.size:
-    #     #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
-    #     #         if dupInd.size:
-    #     #             print("%s duplicates found in new list of geometries"%dupInd.size)
-    #     #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
+    if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
+        os.remove(dbFile)
+        dbExist = False
+    if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
+        os.remove(nbrDbFile)
 
 
+    with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
+        if not dbExist:
+            cur = con.cursor()
+            cur.executescript(sql_script)
 
-    #     assert newGeomList.size, "No new geometries to add"
-    #     # create any tags if necessary
-    #     tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
-    #     newGeomList = np.column_stack([newGeomList, tags])
-    #     # # insert the geometries and tags into database
-    #     cur.executemany('INSERT INTO Geometry (rho,theta,phi,Tags) VALUES (?, ?, ?, ? )', newGeomList)
+        curNbr = conNbr.cursor()
+        curNbr.executescript(sql_nbrtable_commands)
 
-    #     #get the updated table with ids
-    #     cur.execute('select id,rho,theta,phi from geometry')
-    #     geomList= np.array(cur.fetchall())
-
-    #     # Create the cartesian geometries, with centroid translated to origin
-    #     cart = np.apply_along_axis(centroid, 1 , geomList)
-    #     # # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
-    #     pool = Pool()
-    #     dat = pool.map(getKabsch, geomList)
-    #     for (gId, indexes, distances) in dat:
-
-    #         cur.execute('UPDATE Geometry SET Nbr = ? where Id=?', (' '.join(map(str,indexes)), gId))
-    #         curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
-
-    #     # save the geomlist in a datafile
-    #     geomList[:,2:] = np.rad2deg(geomList[:,2:])
-    #     np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')
+        # create the geometry list here
+        newGeomList =np.stack( np.mgrid[rho:rho:1j, 0:90:46j, 0:360:121j], axis=3).reshape(-1,3)
+        newGeomList[:,1:] = np.deg2rad(newGeomList[:,1:])
+        # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
+        # if dbExist: 
+        #     cur.execute('select rho,phi from geometry')
+        #     oldTable = np.array(cur.fetchall())
+        #     if oldTable.size:
+        #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
+        #         if dupInd.size:
+        #             print("%s duplicates found in new list of geometries"%dupInd.size)
+        #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
 
 
+        assert newGeomList.size, "No new geometries to add"
+        # create any tags if necessary
+
+        tags = np.array([geomObj.geom_tags(i) for i in newGeomList])  
+        newGeomList = np.column_stack([newGeomList, tags])
+        # # insert the geometries and tags into database
+        cur.executemany('INSERT INTO Geometry (rho,theta,phi,Tags) VALUES (?, ?, ?, ? )', newGeomList)
+
+        #get the updated table with ids
+        cur.execute('select id,rho,theta,phi from geometry')
+        geomList= np.array(cur.fetchall())
+
+        # # Create the cartesian geometries, with centroid translated to origin
+        cart = np.array([centroid(i) for i in geomList ])
+        # # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
+        pool = Pool()
+        dat = pool.map(getKabsch, geomList)
+        for (gId, indexes, distances) in dat:
+
+            cur.execute('UPDATE Geometry SET Nbr = ? where Id=?', (' '.join(map(str,indexes)), gId))
+            # curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
+            curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, ind, i, dis) for i, (ind,dis) in enumerate(zip(indexes, distances))] )
+        # # save the geomlist in a datafile
+        geomList[:,2:] = np.rad2deg(geomList[:,2:])
+        np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')
+
+    print('Database {} created'.format(dbFile))
 
     # #%%%%%%%%%%%%%%%%%%%%%%%%%% for scattering jacobi system %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
     # sql_script = sql_script.replace('$$', 'sr REAL,\ncr REAL,\ngamma REAL,')
@@ -268,57 +269,57 @@ if __name__ == "__main__":
 
 
     #%%%%%%%%%%%%%%%%%%%%%%%%%% for spectroscopic normal mode %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    sql_script = sql_script.replace('$$', 'rho REAL,\nphi REAL,')
-    ranges = [4.5,np.deg2rad(30)]
+    # sql_script = sql_script.replace('$$', 'rho REAL,\nphi REAL,')
+    # ranges = [4.5,np.deg2rad(30)]
 
-    if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
-        os.remove(dbFile)
-        dbExist = False
-    if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
-        os.remove(nbrDbFile)
-
-
-    with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
-        if not dbExist:
-            cur = con.cursor()
-            cur.executescript(sql_script)
-
-        curNbr = conNbr.cursor()
-        curNbr.executescript(sql_nbrtable_commands)
-
-        # create the geometry list here
-        newGeomList =np.stack( np.mgrid[0.1:5.0:50j,0:180:181j], axis=2).reshape(-1,2)
-        newGeomList[:,1] = np.deg2rad(newGeomList[:,1])
-        # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
-        # if dbExist: 
-        #     cur.execute('select rho,phi from geometry')
-        #     oldTable = np.array(cur.fetchall())
-        #     if oldTable.size:
-        #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
-        #         if dupInd.size:
-        #             print("%s duplicates found in new list of geometries"%dupInd.size)
-        #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
+    # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
+    #     os.remove(dbFile)
+    #     dbExist = False
+    # if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
+    #     os.remove(nbrDbFile)
 
 
+    # with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
+    #     if not dbExist:
+    #         cur = con.cursor()
+    #         cur.executescript(sql_script)
 
-        # assert newGeomList.size, "No new geometries to add"
-        # create any tags if necessary
-        # tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
-        # newGeomList = np.column_stack([newGeomList, tags])
-        # # insert the geometries and tags into database
-        cur.executemany('INSERT INTO Geometry (rho,phi) VALUES (?, ?)', newGeomList)
+    #     curNbr = conNbr.cursor()
+    #     curNbr.executescript(sql_nbrtable_commands)
 
-        #get the updated table with ids
-        cur.execute('select id,rho,phi from geometry')
-        geomList= np.array(cur.fetchall())
+    #     # create the geometry list here
+    #     newGeomList =np.stack( np.mgrid[0.1:5.0:50j,0:180:181j], axis=2).reshape(-1,2)
+    #     newGeomList[:,1] = np.deg2rad(newGeomList[:,1])
+    #     # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
+    #     # if dbExist: 
+    #     #     cur.execute('select rho,phi from geometry')
+    #     #     oldTable = np.array(cur.fetchall())
+    #     #     if oldTable.size:
+    #     #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
+    #     #         if dupInd.size:
+    #     #             print("%s duplicates found in new list of geometries"%dupInd.size)
+    #     #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
 
-        # # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
-        pool = Pool()
-        dat = pool.map(getKabsch_norm, geomList)
-        for (gId, indexes, distances) in dat:
-            cur.execute('UPDATE Geometry SET Nbr = ? where Id=?', (' '.join(map(str,indexes)), gId))
-            curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
 
-        # save the geomlist in a datafile
-        geomList[:,2] = np.rad2deg(geomList[:,2])
-        np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f'], delimiter='\t')
+
+    #     # assert newGeomList.size, "No new geometries to add"
+    #     # create any tags if necessary
+    #     # tags = np.apply_along_axis(geomObj.geom_tags, 1, newGeomList)
+    #     # newGeomList = np.column_stack([newGeomList, tags])
+    #     # # insert the geometries and tags into database
+    #     cur.executemany('INSERT INTO Geometry (rho,phi) VALUES (?, ?)', newGeomList)
+
+    #     #get the updated table with ids
+    #     cur.execute('select id,rho,phi from geometry')
+    #     geomList= np.array(cur.fetchall())
+
+    #     # # Create a pool of workers on all processors of system and feed all the functions (synchronously ???)
+    #     pool = Pool()
+    #     dat = pool.map(getKabsch_norm, geomList)
+    #     for (gId, indexes, distances) in dat:
+    #         cur.execute('UPDATE Geometry SET Nbr = ? where Id=?', (' '.join(map(str,indexes)), gId))
+    #         curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
+
+    #     # save the geomlist in a datafile
+    #     geomList[:,2] = np.rad2deg(geomList[:,2])
+    #     np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f'], delimiter='\t')

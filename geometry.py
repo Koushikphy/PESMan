@@ -58,19 +58,38 @@ class Scattering(object):
         return np.array([p1, p2, p3])*bohr2ang
 
 
-    def createXYZfile(self, geomRow, filename, rad=True):
-        # rad true means the values in database are in degree
+    def createXYZfile(self, geomRow, fileName, ddr=False):
+        # theta,phi values are in radian in database
         rho     = geomRow["rho"]
         theta   = geomRow["theta"]
         phi     = geomRow["phi"]
         gId     = geomRow["Id"]
+        dphi    = np.deg2rad(3)/10.0    #  dphi is 2 degree
+        dth     = np.deg2rad(2)/10.0    #  dtheta is 3 degree
+
+
+        self.saveGeomFile(gId,rho,theta,phi,fileName)
+
+        if not ddr: return
+        # ddr case, the flag is controlled in ImpExp file
+        self.saveGeomFile(gId,rho,theta+dth,phi,fileName.replace(".xyz","_pdt.xyz"))
+        self.saveGeomFile(gId,rho,theta-dth,phi,fileName.replace(".xyz","_mdt.xyz"))
+        self.saveGeomFile(gId,rho,theta,phi+dphi,fileName.replace(".xyz","_pdp.xyz"))
+        self.saveGeomFile(gId,rho,theta,phi-dphi,fileName.replace(".xyz","_mdp.xyz"))
+
+
+
+    def saveGeomFile(self, gId, rho, theta, phi, fileName):
         curGeom = self.getCart(rho, theta, phi)
-        if rad:
-            theta = np.rad2deg(theta)
-            phi = np.rad2deg(phi)
+        
+        # theta, phi values will be written as degree in geometry file
+        theta = np.rad2deg(theta)
+        phi = np.rad2deg(phi)
+
         txt = "{}\nGeometry file for GeomId {} : rho={}, theta={}, phi={}\n".format(len(self.atoms), gId, rho, theta, phi)
-        for i,j in zip(self.atoms, curGeom):  txt += "{},{:13.10f},{:13.10f},{:13.10f}\n".format(i, *j)
-        with open(filename,"w") as f:  f.write(txt)
+        for i,j in zip(self.atoms, curGeom):  txt += "{},{:18.15f},{:18.15f},{:18.15f}\n".format(i, *j)
+        with open(fileName,"w") as f:  f.write(txt)
+
 
 
     def AreaTriangle(self,a,b,c):
@@ -111,9 +130,9 @@ class Scattering(object):
         x = R2*R2 + R3*R3 - R1*R1
         y = 4.0*area
         Ang123 = np.arctan2(y,x)
-        x2 = (0.0,0.0)
-        x3 = (R2,0.0)
-        x1 = (R3*np.cos(Ang123),R3*np.sin(Ang123))
+        # x2 = (0.0,0.0)
+        # x3 = (R2,0.0)
+        # x1 = (R3*np.cos(Ang123),R3*np.sin(Ang123))
         # these are non-mass scaled jacobi coords
         # r : (x3-x2)
         # R : x1 - com(x3,x2)
@@ -138,6 +157,7 @@ class Scattering(object):
     def geom_tags(self, geom):
         """ generate tags for geometry """
         rho,theta,phi = geom
+
         dat = self.getCart(rho,theta,phi)
         # dat -> f,h,h and dat[[1, 2, 0]] -> h,h,f
         # so dists are distances of fh, hh, fh
@@ -145,19 +165,24 @@ class Scattering(object):
         dists  = np.linalg.norm(tmpdat,axis=1)
 
         path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohrs, getCart returns in angstorm
-        channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
+        # channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
         linear  = np.abs(theta) < 1.0e-10
 
-        l = []
-        if linear:   # linear position
-            l.append("linear")
-            if channel:
-                l.append("Heinside")
-            else:
-                l.append("Heoutside")
-        if path:
-            l.append("path")
-        return ":".join(l)
+        l = ""
+        if linear : l+=' linear'
+        if path   : l+=' path'
+        return l
+
+        # l = []
+        # if linear:   # linear position
+        #     l.append("linear")
+        #     if channel:
+        #         l.append("Heinside")
+        #     else:
+        #         l.append("Heoutside")
+        # if path:
+        #     l.append("path")
+        # return ":".join(l)
 
 
 
@@ -209,14 +234,16 @@ class Jacobi(object):
         return ":".join(l)
 
 
-# atoms = ["F","H", "H"]
-# masses= [19.0,1.0,1.0]
-# geomObj = Scattering(atoms, masses)
-aq1      = [0.0000000, 0.6167049, 0.0000000, 0.4760237,-0.2885117, 0.0000000,-0.4760237,-0.2885117, 0.0000000]
-aq2      = [0.8122235, 0.0000000, 0.0000000,-0.3799808,-0.1605027, 0.0000000,-0.3799808, 0.1605027, 0.0000000]
-freq     = [759.61,1687.70 ]
-masses   = [14.006700, 15.999400, 15.999400]
-atoms    = ["N", "O", "O"]
-equigeom = [[ -0.0000000000, 0.0073802030,0.0000000000], [1.1045635392, 0.4739443250, 0.0000000000], [-1.1045635392, 0.4739443250, 0.0000000000]]
+atoms = ["H","H", "H"]
+masses= [1.0,1.0,1.0]
+geomObj = Scattering(atoms, masses)
+# aq1      = [0.0000000, 0.6167049, 0.0000000, 0.4760237,-0.2885117, 0.0000000,-0.4760237,-0.2885117, 0.0000000]
+# aq2      = [0.8122235, 0.0000000, 0.0000000,-0.3799808,-0.1605027, 0.0000000,-0.3799808, 0.1605027, 0.0000000]
+# freq     = [759.61,1687.70 ]
+# masses   = [14.006700, 15.999400, 15.999400]
+# atoms    = ["N", "O", "O"]
+# equigeom = [[ -0.0000000000, 0.0073802030,0.0000000000], 
+#               [1.1045635392, 0.4739443250, 0.0000000000], 
+#               [-1.1045635392, 0.4739443250, 0.0000000000]]
 
-geomObj = Spectroscopic(atoms, masses, freq, aq1, aq2, equigeom)
+# geomObj = Spectroscopic(atoms, masses, freq, aq1, aq2, equigeom)

@@ -9,6 +9,8 @@ import textwrap
 from itertools import izip_longest as izl
 from ConfigParser import SafeConfigParser
 from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
+from multiprocessing import Pool
+import subprocess
 # from logging.handlers import TimedRotatingFileHandler
 
 
@@ -47,11 +49,16 @@ def zipOne(path):
     shutil.rmtree(path)
 
 # Walks through the directory structure recursively finds folder to archive that matches pattern in pathList
-def zipAll(subStringList):
+def zipAll(subStringList,np):
+    allPaths = []
     for path,_,_ in os.walk('.'):
         for subs in subStringList:
-            if subs in path:
-                zipOne(path)
+            if subs in path: allPaths.append(path)
+    if np==1:
+        for p in allPaths: zipOne(p)
+    else: # if parallel export is requested
+        pool = Pool(processes=np)   # does so in parallel
+        pool.map(zipOne, allPaths)
 
 
 
@@ -118,7 +125,8 @@ def status(dB):
             status+='{0}{1}{0}'.format('='*90,'\n\t\tNo Calcs are avialable\n')
             print(status)
             return
-        status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}|{5:^20}\n{0}".format('='*90,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.', 'Jobs in ExpCalc')
+        status += "{0}\n{1:^10}|{2:^13}|{3:^20}|{4:^20}|{5:^20}\n{0}".format(
+                '='*90,'CalcId','CalcName','Exported Jobs No.','Imported Jobs No.', 'Jobs in ExpCalc')
         for i,name in enumerate(names, start=1):
             cur.execute('select sum(NumCalc) from Exports where calcid=?',(i,))
             tE = cur.fetchone()[0]
@@ -127,9 +135,19 @@ def status(dB):
             cur.execute('select count(*) from ExpCalc where calcid=?',(i,))
             tEx = cur.fetchone()[0]
             status +="\n{:^10}|{:^13}|{:^20}|{:^20}|{:^20}\n{}".format(i,name,tE,tD,tEx,'-'*90)
+        status += "\n \033[31m\n\033[4mDirectory Stats:\033[0m\t\t\n" + "="*90 + "\n"
+        subDirs = [x for x in os.listdir('.') if os.path.isdir(x)]
+        for s in subDirs:
+            status += " {:<13} ---  {}\n".format(s,size(s))
+        status += " {:<13} ---  {}\n".format('Total',size('.')) + "-"*90 
+        # for s in subDirs: # also prints number of files and folders
+            # status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format(s,size(s),folders(s),files(x))
+        # status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format('Total',size('.'),folders('.'),files('.')) + "-"*90
         print(status)
 
-
+size = lambda x: subprocess.check_output(['du','-shx', x]).split()[0]
+# folders = lambda x : int(subprocess.check_output('find %s  -maxdepth 1 -type d | wc -l'%x, shell=True))-1
+# files   = lambda x : int(subprocess.check_output('find %s  -maxdepth 1 -type f | wc -l'%x, shell=True))
 
 
 def checkPositive(val):
@@ -188,43 +206,70 @@ parser_export = subparsers.add_parser('export',
 
 
 parser_export.add_argument('-j', '--jobs', metavar='N', type=checkPositive, default=1, help='Number of jobs to export.\n ')
-parser_export.add_argument('--calc-id','-cid', metavar='CID', type=checkPositive, required=True, help='Id of calculation type.\n ')
-parser_export.add_argument('--gid-list','-gid', metavar='LGID', nargs='+',  type=checkPositive, default=[], help='List of one or more Gometry Ids.\n ')
-parser_export.add_argument('--sid-list','-sid', metavar='LSID', nargs='+', type=notNegetive, default=[], help='List of one or more StartGeom Ids.\n ')
-parser_export.add_argument('--depth', '-d', metavar='N', dest='Depth', type=notNegetive, default=1, help='Specify the value of search depth for near neighbour algorithms to find exportable jobs.\nDefault 1\n ')
+parser_export.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, help='Number of parallel processes to use during export.\n ')
+parser_export.add_argument('--calc-id','-cid', metavar='CID', type=checkPositive, required=True,
+                    help='Id of calculation type.\n ')
+parser_export.add_argument('--gid-list','-gid', metavar='LGID', nargs='+',  type=checkPositive, default=[], 
+                    help='List of one or more Gometry Ids.\n ')
+parser_export.add_argument('--sid-list','-sid', metavar='LSID', nargs='+', type=notNegetive, default=[],
+                    help='List of one or more StartGeom Ids.\n ')
+parser_export.add_argument('--depth', '-d', metavar='N', dest='Depth', type=notNegetive, default=1,
+                    help='Specify the value of search depth for near neighbour algorithms to find exportable jobs.\nDefault 1\n ')
+parser_export.add_argument('-par','--parallel',default=False, action='store_true',
+                    help='Run exported jobs parallely for multiple geometries. Processes number is read from config file\n\
+Default false: If process number is given use molpro MPI implementation to run a single geometry in parallel\n ')
 parser_export.add_argument('--template', metavar='TEMPL', dest='ComTemplate', help='Template file for generating input files.\n ')
 parser_export.add_argument('--incl-path',default=False, action='store_true',help='Include pathological geometries.\n ')
-parser_export.add_argument('--constraint', metavar='CONST', dest='const', type=str,  help='Specify a database constraint in SQLite3 query format for the geometries to be exported.\n ' )
+parser_export.add_argument('--constraint', metavar='CONST', dest='const', type=str, 
+                    help='Specify a database constraint in SQLite3 query format for the geometries to be exported.\n ' )
 
  
 parser_import = subparsers.add_parser('import', description='Import calculations into the PES database.',
-                        formatter_class=argparse.RawTextHelpFormatter,
-                        help='Import a bunch of completed calculations')
+                    formatter_class=argparse.RawTextHelpFormatter,
+                    help='Import a bunch of completed calculations')
 
-parser_import.add_argument('-e','--exp', metavar='LIST', nargs='+', dest='ExpFile', required=True, help=''' Specify one/multiple export file for import, generated during export.\n ''')
-parser_import.add_argument('-ig', metavar="LIST", nargs='+', type=str, default=[],help="List file extensions to ignore during import\n ")
-parser_import.add_argument('-del', default=False,dest='delete', action="store_true" ,help="Delete folder after successful import.\n ")
-parser_import.add_argument('-zip',default = False, action = "store_true", help = '''Compress the folder during saving in GeomData folder after import. 
+parser_import.add_argument('-e','--exp', metavar='LIST', nargs='+', dest='ExpFile', required=True,
+                    help=''' Specify one/multiple export file for import, generated during export.\n ''')
+parser_import.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, help='Number of parallel processes to use during import.\n ')
+parser_import.add_argument('-ig', metavar="LIST", nargs='+', type=str, default=[],
+                    help="List file extensions to ignore during import\n ")
+parser_import.add_argument('-del', default=False,dest='delete', action="store_true" ,
+                    help="Delete folder after successful import.\n ")
+parser_import.add_argument('-zip',default = False, action = "store_true",
+                    help = '''Compress the folder during saving in GeomData folder after import. 
 This reduces total size and file number substantially. But this is a CPU heavy process 
 and compressing and decompressing takes considerable time.''')
 
-subparsers.add_parser('addcalc', description="Add Calculation info defined in 'pesman.config'", help= "Add Calculation info defined in 'pesman.config'")
+subparsers.add_parser('addcalc', description="Add Calculation info defined in 'pesman.config'", 
+                    help= "Add Calculation info defined in 'pesman.config'")
 subparsers.add_parser('status', description='Check current PESMan Status\n ', help= 'Check current PESMan Status')
 
 
 
-parser_zip = subparsers.add_parser('zip', description='Archive one/multiple directory or all individual geom folders.\n ', help = 'Archive one/multiple directory or all individual geom folders.')
-parser_zip.add_argument('-d', metavar="LIST", nargs='+', type=str, default=[], help='Provide path(s) of folder(s) to archive.\n ' )
-parser_zip.add_argument('-all' ,metavar="DIR", nargs='*', type=str, help='Use this flag to archive all geom folders by default.\nAdditionally provide folder names to to search for to archive.' )
+parser_zip = subparsers.add_parser('zip', description='Archive one/multiple directory or all individual geom folders.\n ', 
+                    help = 'Archive one/multiple directory or all individual geom folders.')
+parser_zip.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, help='Number of parallel processes to use during archiving.\n ')
+parser_zip.add_argument('-d', metavar="LIST", nargs='+', type=str, default=[], 
+                    help='Provide path(s) of folder(s) to archive.\n ' )
+parser_zip.add_argument('-all' ,metavar="DIR", nargs='*', type=str, 
+                    help='Use this flag to archive all geom folders by default.\n\
+If "DIR" is provided, it will recursively archive every directory that contains "DIR" in its name.\n' )
 
-parser_unzip = subparsers.add_parser('unzip', description='Extract one/multiple directory or all individual archived geom folders.\n ', help= 'Extract one/multiple directory or all individual archived geom folders.')
-parser_unzip.add_argument('-f', metavar="LIST", nargs='+', type=str, default=[], help='Provide path(s) of file(s) to unarchive.\n ')
-parser_unzip.add_argument('-all' ,metavar="ROOT",nargs='?',const='.', type=str, help='Use this flag to unarchive all geom folders by default.\nAdditionally provide root folder where to search for.' )
+parser_unzip = subparsers.add_parser('unzip', 
+                    description='Extract one/multiple directory or all individual archived geom folders.\n ', 
+                    help= 'Extract one/multiple directory or all individual archived geom folders.')
+parser_unzip.add_argument('-f', metavar="LIST", nargs='+', type=str, default=[], 
+                    help='Provide path(s) of file(s) to unarchive.\n ')
+parser_unzip.add_argument('-all' ,metavar="ROOT",nargs='?',const='.', type=str, 
+                    help='Use this flag to unarchive all geom folders by default.\n\
+                        Additionally provide root folder where to search for.' )
 
 
-parser_delete = subparsers.add_parser('delete', description='Delete one/multiple geometry data\n ', help= 'Delete one/multiple geometry data',formatter_class=argparse.RawTextHelpFormatter,)
+parser_delete = subparsers.add_parser('delete', description='Delete one/multiple geometry data\n ', 
+                    help= 'Delete one/multiple geometry data',formatter_class=argparse.RawTextHelpFormatter,)
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
-parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
+parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, 
+                    help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
 
 
 
@@ -255,31 +300,40 @@ if __name__ == '__main__':
 
         calcId = args.calc_id
         jobs = args.jobs
+        np = args.np
         depth = args.Depth
         gidList =args.gid_list
         sidList = args.sid_list
         templ = args.ComTemplate
         const = args.const
         inclp  = args.incl_path
+        par = args.parallel
+        
+        assert not (calcId==1 and par), "Requesting parallel geometry jobs for CalcId=1. Are you sure?"
+
+        npTmp = "\n        No. processes    : {}".format(np) if np>1 else ''
 
         txt = textwrap.dedent("""  PESMan Export
 -------------------------------------------------
-        Database        : {}
-        Calc Type Id    : {}
-        PESDir          : {}
-        Export Dir      : {}
-        Number of Jobs  : {}
-        Depth           : {}
-        GeomID List     : {}
-        SartID List     : {}
-        Template        : {}
-        Constraint      : {}
-        Include Path    : {}
-        """.format( dB, calcId, pesDir, exportDir, jobs, depth, gidList, sidList, templ if templ else 'Default', const, inclp))
-        logger.info('-------------------------------------------------')
+        Database         : {}
+        Calc Type Id     : {}
+        PESDir           : {}
+        Export Dir       : {}
+        Number of Jobs   : {}{}
+        Depth            : {}
+        GeomID List      : {}
+        SartID List      : {}
+        Parallel geometry: {}
+        Template         : {}
+        Constraint       : {}
+        Include Path     : {}
+        """.format( 
+            dB, calcId, pesDir, exportDir, jobs, npTmp, depth, gidList, sidList, par, templ if templ else 'Default', const, inclp
+        ))
+        logger.info('\n-------------------------------------------------')
         logger.debug(txt)
         try:
-            ExportNearNbrJobs(dB, calcId, jobs,exportDir,pesDir, templ, gidList, sidList, depth, const, inclp, molInfo,logger)
+            ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList, depth, const, inclp, molInfo, par, logger)
         except AssertionError as e:
             logger.info('PESMan Export failed. %s'%e)
         except:
@@ -288,21 +342,23 @@ if __name__ == '__main__':
 
     elif args.subcommand == 'import':  # import jobs
         isZipped = args.zip
+        np = args.np
         iGl = args.ig
         isDel = args.delete
+        npTmp = "\n        No. processes    : {}".format(np) if np>1 else ''
         txt = textwrap.dedent("""PESMan Import 
 -------------------------------------------------
-        Database            : {}
+        Database            : {}{}
         PES Dir             : {}
         Ignore files        : {}
         Delete after import : {}
         Archive directory   : {}
-        """.format(dB, pesDir, iGl, isDel, isZipped))
+        """.format(dB, npTmp, pesDir, iGl, isDel, isZipped))
         logger.info('-------------------------------------------------')
         logger.debug(txt)
         try:
             for expFile in args.ExpFile: # accepts multiple export files
-                ImportNearNbrJobs(dB, expFile, pesDir, iGl, isDel, isZipped, logger)
+                ImportNearNbrJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger)
         except AssertionError as e:
             logger.info('PESMan Import failed. %s'%e)
         except:
@@ -323,7 +379,7 @@ if __name__ == '__main__':
             for nam, tem, des in izl(names, templates, desc, fillvalue=''):
                 stemp = open(tem).read()
                 cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))
-                print "Template : '{}' inserted into database".format(nam)
+                print "Template : '{0}' inserted into database".format(nam)
             print "\n{0}\n{1:^10}{2:^15}{3:^20}{4:<20}\n{0}".format('='*99,'CalcType', "CalcName", "Description", 'Template')
             for row in cur.execute("SELECT Id,Type,desc,inptempl FROM CalcInfo"):
                 row = [str(i).split('\n') for i in row]
@@ -334,6 +390,7 @@ if __name__ == '__main__':
 
     elif args.subcommand=='zip': # archive directiories
         paths = args.d 
+        np = args.np
         allPat = args.all 
         for path in paths: # if d not provided, its empty anyway
             zipOne(path)
@@ -343,7 +400,7 @@ if __name__ == '__main__':
         if allPat is not None:            # means `-all` flag is given
             if not allPat:                # `-all` is given without any values
                 allPat = ['multi','mrci'] # some default if nothing is given
-            zipAll(allPat)
+            zipAll(allPat,np)
 
 
     elif args.subcommand=='unzip': # unarchive directories
@@ -393,53 +450,3 @@ def checkBreaks(dB, sid):
             print geom
             doneGeom.add(geom)
 
-
-# use the following code in run.log to run multiple jobs in parallel
-'''
-#!/usr/bin/python
-
-import os, subprocess
-from datetime import datetime
-from multiprocessing import Pool
-
-
-# first open export.dat file and collect information about exported jobs
-with open("export.dat",'r') as f:
-    expDirs = f.read().split("\n",1)[1].split()[1:]
-
-mainDirectory = os.getcwd()
-fLog = open("run.log","a", buffering=1)
-
-
-def writeLog(msg): # writes to the log file
-    msg = datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg+'\n'
-    fLog.write(msg)
-
-# now execute each job
-def runMol(RunDir):
-    if os.path.isfile("{0}/{0}.calc".format(RunDir)):
-        writeLog("Job already done for "+RunDir)
-        return
-    elif os.path.isfile("{0}/{0}.calc_".format(RunDir)):
-        writeLog("Job Started for   "+RunDir)
-    else:
-      raise Exception("No '.calc' or '.calc_' file found in {}".format(RunDir))
-    fComBaseFile = RunDir + ".com"
-    os.chdir(RunDir)  # will be run on 1 processor
-    exitcode = subprocess.call(["molpro", fComBaseFile, "-d", '/tmp/fh2te', "-W ."] +['--no-xml-output'])
-    os.chdir(mainDirectory)
-
-    if exitcode == 0:
-        writeLog("Job Successful for "+ RunDir)
-        os.rename( "{0}/{0}.calc_".format(RunDir), "{0}/{0}.calc".format(RunDir))    # rename .calc_ file so that it can be imported
-    else:
-        writeLog("Job Failed" + RunDir)
-
-
-
-if __name__=='__main__':
-    p = Pool()   #< put any number for processor
-    p.map(runMol,expDirs)
-
-writeLog("All Jobs Completed\n"+"-"*90)
-fLog.close()'''

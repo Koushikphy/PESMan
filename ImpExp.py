@@ -1,3 +1,4 @@
+from __future__ import print_function
 import re
 import os
 import shutil
@@ -5,7 +6,9 @@ import tarfile
 import sqlite3
 from glob import glob
 from geometry import geomObj
+import textwrap
 # initiate the geometry object inside the geometry file and call the methods from there
+from multiprocessing import Pool
 
 def parseResult(file):
     # Collects any valid number and returns the result as a string
@@ -28,7 +31,8 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
         f.write(txt)
 
 
-def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidList, depth, constDb, includePath, molInfo,logger):
+def ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList, 
+                    depth, constDb, includePath, molInfo, par, logger):
     # Main export function that exports a given number of jobs for a specified calcid type
     # following collects the geomid that are exportable and the calc table id which will be used as their start info
     if calcId > 1: # Mrci or nact export
@@ -51,15 +55,43 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidLi
         if os.path.exists(expDir):  shutil.rmtree(expDir) #<<<--- shouldn't have happened
         os.makedirs(expDir)
 
-        expDirs = []
-        for ind, (GeomId,StartCalcId) in enumerate(ExpGeomList, start=1):
-            logger.info('Exporting Job No {} with GeomId {}'.format(ind, GeomId))
-            bName = ExportCalc(cur, GeomId, calcId,pesDir,expDir, InfoRow, templ, StartId=StartCalcId, BaseSuffix=str(ind))
-            expDirs.append(bName)
+        if templ:  # if template given use that, o/w use from calcinfo table
+            with open(templ,'r') as f: template = f.read()
+        else:
+            template = InfoRow["InpTempl"]
+
+        calcName = InfoRow["Type"]
+        jobs = []
+        for ind, (geomId,startId) in enumerate(ExpGeomList, start=1):
+            cur.execute('SELECT * from Geometry WHERE Id=?',(geomId,))
+            geom = dict(cur.fetchone())  # to be parsed in geometry
+
+            if startId:
+                cur.execute('SELECT * from Calc WHERE Id=?',(startId,))
+                calcRow = cur.fetchone()
+                startGId = calcRow["GeomId"]
+                startDir = calcRow["Dir"]
+            else:
+                startGId = 0
+                startDir = None
+
+            jobs.append([
+                geomId, geom, calcId, expDir, template,calcName, startGId, startDir, ind, logger.info if np==1 else print
+            ])
+        # the logging module though thread safe, can't write from multiple processes, so when multiprocessing is used just print to stdout
+        # This situation can be handled properly with an explicit threading queue, but I didn't want to make it all that complicated
+        # That means in parallel case the statements inside ExportCalc won't be logged to PESMan.log
+        if np==1:
+            expDirs = [ExportCalc(i) for i in jobs]
+        else: # if parallel export is requested
+            pool = Pool(processes=np)
+            expDirs = pool.map(ExportCalc,jobs)
+
 
         # update the export table and expcalc tables with the exported jobs
         expGeomIds = [i for i,_ in ExpGeomList]
-        cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')), ExpGeomIds=? WHERE Id=?", (len(expDirs), ' '.join(map(str,expGeomIds)), exportId))
+        cur.execute("UPDATE Exports SET NumCalc=?, ExpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')), \
+                    ExpGeomIds=? WHERE Id=?", (len(expDirs), ' '.join(map(str,expGeomIds)), exportId))
 
         lExpCalc = [(exportId,calcId, i,j) for i,j in zip(expGeomIds, expDirs)]
         cur.executemany("INSERT INTO ExpCalc (ExpId,CalcId,GeomId,CalcDir) VALUES (?,?,?,?)",lExpCalc)
@@ -68,12 +100,51 @@ def ExportNearNbrJobs(dB, calcId, jobs, exportDir, pesDir, templ, gidList, sidLi
         with open(fExportDat,'w') as f:
             f.write("# Auto generated file. Please do not modify\n"+ ' '.join(map(str,[exportId]+expDirs)))
 
-        os.chmod(fExportDat,0444)                                  # change mode of this file to read-only to prevent accidental writes
+        os.chmod(fExportDat,0444)# change mode of this file to read-only to prevent accidental writes
 
         fPythonFile =   "{}/RunJob{}.py".format(expDir, exportId)  # save the python file that will run the jobs
-        createRunJob(molInfo, fPythonFile)
+
+        if par: # export job to run parallel geometry
+            createRunJobParallel(molInfo, fPythonFile)
+        else: # run a single geometry, mandatory for job like primary mcscf
+            createRunJob(molInfo, fPythonFile)  # use only this if you want no parallel geometry
+
         logger.info("PESMan export successful: Id {} with {} job(s) exported\n".format(exportId, len(ExpGeomList)))
         return expDir, exportId, expDirs
+
+
+
+
+def ExportCalc(arg):
+    [geomId, geom, calcId, expDir, template, calcName, startGId, startDir, ind, writer] = arg
+    writer('Exporting Job No {} with GeomId {}'.format(ind, geomId))
+
+    baseName = "{}{}-geom{}-{}".format(calcName, calcId, geomId, ind)
+    exportDir = expDir + "/" + baseName
+    os.makedirs(exportDir)
+
+    fCalc = '{}/{}.calc_'.format(exportDir,baseName) # `_` at the end means job not yet done, will be removed after successful run
+    fXYZ  = '{}/{}.xyz'.format(exportDir,baseName)
+    genCalcFile(calcId,geomId,calcName,baseName,startGId,fCalc)
+    geomObj.createXYZfile(geom, fXYZ, ddr=calcId!=1)  #< -- geometry file is created from outside
+
+    if startGId:                       # copy wavefunc if start id is present
+        _,a,b = startDir.split("/")     # StartDir -> GeomData/geom1/multi1; StartBaseName -> multi1-geom1
+        startBaseName = "{}-{}".format(b,a)
+        if os.path.isdir(startDir):   # not in zipped format, copy it to a new name
+            shutil.copy("{}/{}.wfu".format(startDir,startBaseName), "{}/{}.wfu".format(exportDir,baseName))
+            shutil.copy(startDir+ "/%s.wfu"%startBaseName, exportDir+"/%s.wfu"%baseName )
+        else:                         # file is in tar
+            tar = tarfile.open(startDir+".tar.bz2")
+            tar.extract("./%s.wfu"%startBaseName, path=exportDir) # open tar file and rename it
+            os.rename(exportDir+"/%s.wfu"%startBaseName, exportDir+"/%s.wfu"%baseName)
+
+    txt = template.replace("$F$",baseName)
+    # generate molpro input file
+    fInp = '{}/{}.com'.format(exportDir,baseName)
+    with open(fInp,'w') as f: f.write(txt)
+
+    return baseName
 
 
 
@@ -85,7 +156,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
         # get jobs that is already done and add to excludegeomlist
         cur.execute("SELECT GeomId,Id FROM Calc WHERE CalcId=?",(calcId,))
         DictCalcId  = dict(cur.fetchall())
-        CalcGeomIds = set(DictCalcId.iterkeys())
+        CalcGeomIds = set(DictCalcId.keys())
         ExcludeGeomIds = CalcGeomIds.copy()
 
         cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
@@ -119,7 +190,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
                     return expGClist                              # got all the geometries needed
                 continue
 
-            nbrList = map(int, nbrList.split())                   # Care ful about integer mapping
+            nbrList =list(map(int, nbrList.split()))                   # Care ful about integer mapping
             nbrId = nbrList[0]                                    # for this initial loop only consider first neighbour
 
             if nbrId in CalcGeomIds:
@@ -147,6 +218,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
     return expGClist
 
 
+
 def GetExpMrciNactJobs(dB, calcId, jobs, constDb):
 
     with sqlite3.connect(dB) as con:
@@ -168,57 +240,13 @@ def GetExpMrciNactJobs(dB, calcId, jobs, constDb):
     return expGClist
 
 
-def ExportCalc(cur, geomId, calcId, pesaDir, expDir, InfoRow, ComTemplate, StartId, BaseSuffix):
-
-    # get the geometry
-    cur.execute('SELECT * from Geometry WHERE Id=?',(geomId,))
-    GeomRow = cur.fetchone()
-
-    if ComTemplate:                     # if template given use that, o/w use from calcinfo table
-        with open(ComTemplate,'r') as f: InpTempl = f.read()
-    else:
-        InpTempl = InfoRow["InpTempl"]
-
-    if StartId:                         # non-zero StartId , collect necessary things from calc table
-        cur.execute('SELECT * from Calc WHERE Id=?',(StartId,))
-        calcRow = cur.fetchone()
-        StartGId = calcRow["GeomId"]
-        StartDir = calcRow["Dir"]
-        c,a,b = StartDir.split("/")     # StartDir -> GeomData/geom1/multi1; StartBaseName -> multi1-geom1
-        StartBaseName = "{}-{}".format(b,a)
-    else:
-        StartGId = 0
-
-    BaseName = "{}{}-geom{}-".format(InfoRow["Type"], calcId, geomId) + BaseSuffix
-    ExportDir = expDir + "/" + BaseName
-    os.makedirs(ExportDir)
-
-    fCalc = '{}/{}.calc_'.format(ExportDir,BaseName) # `_` at the end means job not yet done, will be removed after successful run
-    fXYZ  = '{}/{}.xyz'.format(ExportDir,BaseName)
-    genCalcFile(calcId,geomId,InfoRow["Type"],BaseName,StartGId,fCalc)
-    geomObj.createXYZfile(GeomRow, filename = fXYZ)  #< -- geometry file is created from outside
-
-    if StartId:                       # copy wavefunc if start id is present
-        if os.path.isdir(StartDir):   # not in zipped format, copy it to a new name
-            shutil.copy(StartDir+ "/%s.wfu"%StartBaseName, ExportDir+"/%s.wfu"%BaseName )
-        else:                         # file is in tar
-            tar = tarfile.open(StartDir+".tar.bz2")
-            tar.extract("./%s.wfu"%StartBaseName, path=ExportDir) # open tar file and rename it
-            os.rename(ExportDir+"/%s.wfu"%StartBaseName, ExportDir+"/%s.wfu"%BaseName)
-
-    txt = InpTempl.replace("$F$",BaseName)
-    # generate molpro input file
-    fInp = '{}/{}.com'.format(ExportDir,BaseName)
-    with open(fInp,'w') as f: f.write(txt)
-
-    return BaseName
 
 
-def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped, logger):
+def ImportNearNbrJobs(dB, np, expFile, pesaDir, iGl, isDel, isZipped, logger):
     # imports jobs from a given export.dat file
 
     exportDir = os.path.abspath(os.path.dirname(expFile))   # get the main export directory
-    exportId  = re.findall('Export(\d+)-', exportDir)[0]     # get the export id, from the directroy name
+    exportId  = re.findall(r'Export(\d+)-', exportDir)[0]     # get the export id, from the directroy name
     # so it seems the export.dat is really not needed to import a job, just the path directory is required
 
     with sqlite3.connect(dB) as con:
@@ -227,28 +255,31 @@ def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped, logger):
         exp_row = cur.fetchone()
         assert exp_row,        "Export Id = {} not found in data base".format(exportId)
         assert exp_row[0] ==0, "Export Id = {} is already closed.".format(exportId)
-        importCount = 0
+        # importCount = 0
 
+        jobs,geomIds = [],[]
         # now obtain list of jobs which can be imported.
         cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(exportId,))
         for geomId, calcDir in cur.fetchall():
-            dirFull = exportDir + "/" + calcDir                     # ab initio directory
+            dirFull = "{}/{}".format(exportDir,calcDir)             # ab initio directory
             calcFile= "{0}/{1}/{1}.calc".format(exportDir, calcDir) # calcfile name
             if os.path.isfile(calcFile):                            # is this job successful?
 
-                logger.info("Importing ...{}".format(dirFull))
-                ImportCalc(cur,dirFull,calcFile,pesaDir, ignoreList=iGl, zipped=isZipped)
+                jobs.append([dirFull,calcFile,pesaDir,iGl,isZipped,isDel, logger.info if np==1 else print])
+                geomIds.append(geomId)
 
-                cur.execute('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',(exportId,geomId))
-                importCount += 1
+        if np==1:
+            res = [ImportCalc(i) for i in jobs]
+        else: # if parallel import is requested
+            pool = Pool(processes=np)
+            res = pool.map(ImportCalc,jobs)
 
-                if isDel:
-                    logger.info("Deleting directory {}".format(dirFull))
-                    shutil.rmtree(dirFull)
+        cur.executemany("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", res)
+        cur.executemany('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',[(exportId,geomId) for geomId in geomIds])
 
         cur.execute("UPDATE Exports SET ImpDT=strftime('%H:%M:%S %d-%m-%Y', datetime('now', 'localtime')) WHERE Id=?",(exportId,))
-        cur.execute("SELECT count(*) FROM ExpCalc WHERE ExpId=?",(exportId,))
 
+        cur.execute("SELECT count(*) FROM ExpCalc WHERE ExpId=?",(exportId,))
         if cur.fetchone()[0]==0:
             cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(exportId,))
             logger.info('Export Id={} is now closed.'.format(exportId))
@@ -257,82 +288,148 @@ def ImportNearNbrJobs(dB, expFile, pesaDir, iGl, isDel, isZipped, logger):
                 shutil.rmtree(exportDir)
         else :
             logger.info('Export Id={} is not closed.'.format(exportId))
-        logger.info("{} Job(s) have been successfully imported.\n".format(importCount))
+        logger.info("{} Job(s) have been successfully imported.\n".format(len(geomIds)))
 
 
 
-def ImportCalc(cur,calcDir,calcFile,pesaDir,ignoreList, zipped):
 
+def ImportCalc(arg):
+    [calcDir,calcFile,pesDir,igList, zipped,isDel,writer] = arg
+    writer("Importing {}...".format(calcDir))
     with open(calcFile,'r') as f:
         txt = f.read().split("\n")[1:] #first line comment
     dCalc = dict([map(str.strip, i.split(":")) for i in txt])
 
     a,b,_ = dCalc['Basename'].split('-') # a base name `multinact2-geom111-1` will go `GeomData/geom111/multinact2`
-    destCalcDir = "{}/{}/{}".format(pesaDir, b, a)
+    destCalcDir = "{}/{}/{}".format(pesDir, b, a)
     fRes = "{}/{}.res".format(calcDir, dCalc['Basename'])
     sResults = parseResult(fRes)
-    if not os.path.exists(destCalcDir):  os.makedirs(destCalcDir)  # this should not exists though
+    if not os.path.exists(destCalcDir): os.makedirs(destCalcDir)  # this should not exists though
 
-    tcalc = (dCalc["GeomId"],dCalc["CalcId"], destCalcDir, dCalc["StartGId"],sResults)
-    cur.execute("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", tcalc)
 
     for iFile in glob("{}/*.*".format(calcDir)):
-        if os.path.splitext(iFile)[1][1:] in ignoreList: continue                   # copy all file except for ones ignore list
-        oFile = destCalcDir + "/" + re.sub('-\d+','',os.path.basename(iFile))   # rename file, `multinact2-geom111-1` -> `multinact2-geom111`
+        if os.path.splitext(iFile)[1][1:] in igList: continue  # copy all file except for ones ignore list
+        # rename file, `multinact2-geom111-1` -> `multinact2-geom111`
+        oFile = destCalcDir + "/" + re.sub(r'-\d+','',os.path.basename(iFile))   
         shutil.copy(iFile, oFile)
     if zipped:                                                                  # archive the folder if specified
         shutil.make_archive(destCalcDir, 'bztar', root_dir=destCalcDir, base_dir='./')
         shutil.rmtree(destCalcDir)
+    if isDel:
+        writer("Deleting directory {}...".format(calcDir))
+        shutil.rmtree(calcDir)
+    return [dCalc["GeomId"],dCalc["CalcId"], destCalcDir, dCalc["StartGId"],sResults]
+
 
 
 def createRunJob(molInfo, file):
 
-    txt = '''#!/usr/bin/python
+    txt = '''        #!/usr/bin/python
 
-import os, subprocess
-from datetime import datetime
+        import os, subprocess
+        from datetime import datetime
 
-def writeLog(fLog, msg, cont=False): # writes to the log file
-    if not cont :
-        msg = '{{:.<90}}'.format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg)
-    else:
-        msg+='\\n'
-    fLog.write(msg)
-    fLog.flush()
+        def writeLog(fLog, msg, cont=False): # writes to the log file
+            if not cont :
+                msg = '{{:.<90}}'.format(datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg)
+            else:
+                msg+='\\n'
+            fLog.write(msg)
+            fLog.flush()
 
 
-# first open export.dat file and collect information about exported jobs
-with open("export.dat",'r') as f:
-    expDirs = f.read().split("\\n",1)[1].split()[1:]
+        # first open export.dat file and collect information about exported jobs
+        with open("export.dat",'r') as f:
+            expDirs = f.read().split("\\n",1)[1].split()[1:]
 
-mainDirectory = os.getcwd()
-fLog = open("run.log","a")
+        mainDirectory = os.getcwd()
+        fLog = open("run.log","a")
 
-# now execute each job
-for RunDir in expDirs:
-    if os.path.isfile("{{0}}/{{0}}.calc".format(RunDir)):
-        writeLog(fLog, "Job already done for "+RunDir, True)
-        continue
-    elif os.path.isfile("{{0}}/{{0}}.calc_".format(RunDir)):
-        writeLog(fLog, "Running Job for "+RunDir)
-    else:
-        raise Exception("No '.calc' or '.calc_' file found in {{}}".format(RunDir))
-    fComBaseFile = RunDir+".com"
+        # now execute each job
+        for RunDir in expDirs:
+            if os.path.isfile("{{0}}/{{0}}.calc".format(RunDir)):
+                writeLog(fLog, "Job already done for "+RunDir, True)
+                continue
+            elif os.path.isfile("{{0}}/{{0}}.calc_".format(RunDir)):
+                writeLog(fLog, "Running Job for "+RunDir)
+            else:
+                raise Exception("No '.calc' or '.calc_' file found in {{}}".format(RunDir))
+            fComBaseFile = RunDir+".com"
 
-    os.chdir(RunDir)
-    exitcode = subprocess.call(["molpro",fComBaseFile, "-d", "{}", "-W .", "-n", "{}"] + {})
-    os.chdir(mainDirectory)
+            os.chdir(RunDir)
+            exitcode = subprocess.call(["molpro",fComBaseFile, "-d", "{}", "-W .", "-n", "{}"] + {})
+            os.chdir(mainDirectory)
 
-    if exitcode == 0:
-        writeLog(fLog, "Job Successful.", True)
-        os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))    # rename .calc_ file so that it can be imported
-    else:
-        writeLog(fLog, "Job Failed.", True)
+            if exitcode == 0:
+                writeLog(fLog, "Job Successful.", True)
+                # rename .calc_ file so that it can be imported
+                os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))    
+            else:
+                writeLog(fLog, "Job Failed.", True)
 
-writeLog(fLog, "All Jobs Completed\\n")
-writeLog(fLog, "."*70, True)
-fLog.close()
+        writeLog(fLog, "All Jobs Completed\\n")
+        writeLog(fLog, "."*70, True)
+        fLog.close()
 
-'''.format(molInfo['scrdir'], molInfo['proc'], molInfo['extra'])
-    with open(file, 'w') as f: f.write(txt)
+        '''.format(molInfo['scrdir'], molInfo['proc'], molInfo['extra'])
+    with open(file, 'w') as f:
+        f.write(textwrap.dedent(txt))
+    os.chmod(file,0766)
+
+
+
+
+
+
+# use the following code in run.log to run multiple jobs in parallel
+def createRunJobParallel(molInfo, file):
+    txt = '''        #!/usr/bin/python
+
+        import os, subprocess
+        from datetime import datetime
+        from multiprocessing import Pool
+
+
+        # first open export.dat file and collect information about exported jobs
+        with open("export.dat",'r') as f:
+            expDirs = f.read().split("\\n",1)[1].split()[1:]
+
+        mainDirectory = os.getcwd()
+        fLog = open("run.log","a", buffering=1)
+
+
+        def writeLog(msg): # writes to the log file
+            msg = datetime.now().strftime("[%d-%m-%Y %I:%M:%S %p]     ") + msg+'\\n'
+            fLog.write(msg)
+
+        # now execute each job
+        def runMol(RunDir):
+            if os.path.isfile("{{0}}/{{0}}.calc".format(RunDir)):
+                writeLog("Job already done for "+RunDir)
+                return
+            elif os.path.isfile("{{0}}/{{0}}.calc_".format(RunDir)):
+                writeLog("Job Started for    "+RunDir)
+            else:
+                raise Exception("No '.calc' or '.calc_' file found in {{}}".format(RunDir))
+            fComBaseFile = RunDir + ".com"
+            os.chdir(RunDir)  # will be run on 1 processor
+            exitcode = subprocess.call(["molpro", fComBaseFile, "-d", '{}', "-W ."] +{})
+            os.chdir(mainDirectory)
+
+            if exitcode == 0:
+                writeLog("Job Successful for "+ RunDir)
+                # rename .calc_ file so that it can be imported
+                os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))    
+            else:
+                writeLog("Job Failed" + RunDir)
+
+
+        if __name__=='__main__':
+            p = Pool({})   #< put any number for processor
+            p.map(runMol,expDirs)
+
+        writeLog("All Jobs Completed\\n"+"-"*90)
+        fLog.close()'''.format(molInfo['scrdir'], molInfo['extra'], molInfo['proc'])
+    with open(file, 'w') as f:
+        f.write(textwrap.dedent(txt))
     os.chmod(file,0766)

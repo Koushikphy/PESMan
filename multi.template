@@ -1,0 +1,18 @@
+***,H3 
+! $F$ : basename to be substituted
+file,2,$F$.wfu
+
+memory,50,m
+
+basis=aug-cc-pVQZ;
+
+symmetry,x
+geometry=$F$.xyz
+
+{mcscf;config;occ,12,4;wf,3,1,1,0;state,6;start,2140.2;orbital,2140.2;maxiter,40;noextra}
+show,energy
+table,energy
+save,$F$.res
+title, Energies ---  $F$
+
+---
