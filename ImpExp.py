@@ -64,23 +64,20 @@ def ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, s
         jobs = []
         for ind, (geomId,startId) in enumerate(ExpGeomList, start=1):
             cur.execute('SELECT * from Geometry WHERE Id=?',(geomId,))
-            geom = dict(cur.fetchone())  # to be parsed in geometry
+            geom = dict(cur.fetchone())  # to be parsed in geometry, saving unnecessary
 
             if startId:
-                cur.execute('SELECT * from Calc WHERE Id=?',(startId,))
-                calcRow = cur.fetchone()
-                startGId = calcRow["GeomId"]
-                startDir = calcRow["Dir"]
+                cur.execute('SELECT GeomId,Dir from Calc WHERE Id=?',(startId,))
+                startGId,startDir = cur.fetchone()
             else:
-                startGId = 0
-                startDir = None
+                startGId,startDir = 0, None
 
             jobs.append([
                 geomId, geom, calcId, expDir, template,calcName, startGId, startDir, ind, logger.info if np==1 else print
             ])
         # the logging module though thread safe, can't write from multiple processes, so when multiprocessing is used just print to stdout
         # This situation can be handled properly with an explicit threading queue, but I didn't want to make it all that complicated
-        # That means in parallel case the statements inside ExportCalc won't be logged to PESMan.log
+        # That means in parallel case the statements inside ExportCalc won't be logged to PESMan.log, only be print to console
         if np==1:
             expDirs = [ExportCalc(i) for i in jobs]
         else: # if parallel export is requested
@@ -102,7 +99,7 @@ def ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, s
 
         os.chmod(fExportDat,0444)# change mode of this file to read-only to prevent accidental writes
 
-        fPythonFile =   "{}/RunJob{}.py".format(expDir, exportId)  # save the python file that will run the jobs
+        fPythonFile = "{}/RunJob{}.py".format(expDir, exportId)  # save the python file that will run the jobs
 
         if par: # export job to run parallel geometry
             createRunJobParallel(molInfo, fPythonFile)
@@ -115,7 +112,7 @@ def ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, s
 
 
 
-def ExportCalc(arg):
+def ExportCalc(arg):  # python 2.7 multiprocessing cant handle argument more than one
     [geomId, geom, calcId, expDir, template, calcName, startGId, startDir, ind, writer] = arg
     writer('Exporting Job No {} with GeomId {}'.format(ind, geomId))
 
@@ -190,7 +187,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
                     return expGClist                              # got all the geometries needed
                 continue
 
-            nbrList =list(map(int, nbrList.split()))                   # Care ful about integer mapping
+            nbrList =list(map(int, nbrList.split()))              # Care ful about integer mapping
             nbrId = nbrList[0]                                    # for this initial loop only consider first neighbour
 
             if nbrId in CalcGeomIds:
@@ -214,7 +211,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
                         return expGClist
                     exportedGeom.add(geomId)
 
-    assert expGClist, "No Exportable geometries found"         # preventing null exports
+    assert expGClist, "No Exportable geometries found"              # preventing null exports
     return expGClist
 
 
