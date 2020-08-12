@@ -292,7 +292,7 @@ def ImportNearNbrJobs(dB, np, expFile, pesaDir, iGl, isDel, isZipped, logger):
 
 def ImportCalc(arg):
     [calcDir,calcFile,pesDir,igList, zipped,isDel,writer] = arg
-    writer("Importing {}...".format(calcDir))
+    writer("Importing {} ...".format(calcDir))
     with open(calcFile,'r') as f:
         txt = f.read().split("\n")[1:] #first line comment
     dCalc = dict([map(str.strip, i.split(":")) for i in txt])
@@ -305,6 +305,7 @@ def ImportCalc(arg):
 
 
     for iFile in glob("{}/*.*".format(calcDir)):
+        print(iFile, )
         if os.path.splitext(iFile)[1][1:] in igList: continue  # copy all file except for ones ignore list
         # rename file, `multinact2-geom111-1` -> `multinact2-geom111`
         oFile = destCalcDir + "/" + re.sub(r'-\d+','',os.path.basename(iFile))   
@@ -418,7 +419,7 @@ def createRunJobParallel(molInfo, file):
                 # rename .calc_ file so that it can be imported
                 os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))    
             else:
-                writeLog("Job Failed" + RunDir)
+                writeLog("Job Failed for     " + RunDir)
 
 
         if __name__=='__main__':

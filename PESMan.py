@@ -136,7 +136,7 @@ def status(dB):
             tEx = cur.fetchone()[0]
             status +="\n{:^10}|{:^13}|{:^20}|{:^20}|{:^20}\n{}".format(i,name,tE,tD,tEx,'-'*90)
         print(status)
-        status = "\n \033[31m\n\033[4mDirectory Stats:\033[0m\t\t\n" + "="*90 + "\n"
+        status = "\033[31m\n\033[4mDirectory Stats:\033[0m\t\t\n" + "="*90 + "\n"
         subDirs = [x for x in os.listdir('.') if os.path.isdir(x)]
         for s in subDirs:
             status += " {:<13} ---  {}\n".format(s,size(s))

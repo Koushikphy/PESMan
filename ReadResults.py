@@ -132,16 +132,15 @@ def parseMrciDdrNACT(resArr,resDir):
     assert resArr.shape[1]==18, 'Not enough data in result'
 
     thetaList = np.unique(resArr[:,1])
-    mrciData = resArr[:,[0,1,2,3,4,5]]
-    tautData = resArr[:,[0,1,2,6,7,8,9,10,11]]
-    taupData = resArr[:,[0,1,2,12,13,14,15,16,17]]
-    mrciData[:3:] -= -1.67381329  # scale energy
-    tautData[:,3:]*=np.pi # DDR nact conversion from radian to degree
-    taupData[:,3:]*=np.pi
+    resArr[:,[1,2]] = np.rint(np.rad2deg(resArr[:,[1,2]]))
+    mrciData = resArr[:,0:6]
+    tautData = np.abs(resArr[:,np.r_[0:3,6:12]])
+    taupData = np.abs(resArr[:,np.r_[0:3,12:18]])
+    mrciData[:,3:]+=1.67381329  # scale energy
+    tautData[:,3:]*=180.0/np.pi # DDR nact conversion from radian to degree
+    taupData[:,3:]*=180.0/np.pi
 
-    with open(resDir+'/Enr_Mrci.dat','w') as f, 
-         open(resDir+'/TauThetaNACT.dat','w') as g,
-         open(resDir+'/TauPhiNACT.dat','w') as h:
+    with open(resDir+'/Enr_Mrci.dat','w') as f, open(resDir+'/TauThetaNACT.dat','w') as g, open(resDir+'/TauPhiNACT.dat','w') as h:
         for theta in thetaList:
             ind = np.where(mrciData[:,1]==theta)
             np.savetxt(f,mrciData[ind],delimiter='\t',fmt='%.8f')
@@ -150,18 +149,6 @@ def parseMrciDdrNACT(resArr,resDir):
             f.write('\n')
             g.write('\n')
             h.write('\n')
-
-    # with open(resDir+'/TauThetaNACT.dat','w') as f:
-    #     for theta in thetaList:
-    #         dat = tautData[tautData[:,1]==theta]
-    #         np.savetxt(f,dat,delimiter='\t',fmt='%.8f')
-    #         f.write('\n')
-
-    # with open(resDir+'/TauPhiNACT.dat','w') as f:
-    #     for theta in thetaList:
-    #         dat = taupData[taupData[:,1]==theta]
-    #         np.savetxt(f,dat,delimiter='\t',fmt='%.8f')
-    #         f.write('\n')
 
 
 
