@@ -37,7 +37,7 @@
 1. Modify `rho` in CreateNewDps.py (line 150) and run to create a grid of theta-phi for a fixed value of rho.
 2. Run `python PESMan.py addcalc` to add the multi and mrci-ddr calculation information to the database.
 3. For first time run `python PESMan.py export -cid 1 -gid 1 -sid 0` to export 1st geometry to run the multi calulation > Run > import it with `PESMan.py import -e ....`
-4. Now start RunManager script to do multi calculation for all the geometries sequentially. Be careful about the depth value in the script
+4. Now start RunManager script to do multi calculation for all the geometries sequentially. Be careful about the depth value in the script. __multi calculation doesn't gain much from parallel running, so just run it in single processor.__
 5. Run `./PESMan.py export -cid 2 -j 1000 -n 3 -par` to parallely (2 process) export 1000, calc id 2 i.e. mrci-ddr job > Run > import as 
-`PESMan.py import -e <file> -ig wfu -n 3`
+`PESMan.py import -e <file> -ig wfu -n 3`. Don't forget to modify the processor value in pesman.config before running mrciddr jobs
 6. At the end run `./PESMan.py zip -all` to archive all data in GeomData folder

@@ -65,6 +65,7 @@ runDir  = scf.get('Directories', 'rundir')
 impDir  = scf.get('Directories', 'impdir')
 logFile = scf.get('Log', 'LogFile')
 molInfo = dict(scf.items('molInfo'))
+
 try:
     molInfo['extra'] = molInfo['extra'].split(',')
 except KeyError:
