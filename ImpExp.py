@@ -282,7 +282,7 @@ def ImportNearNbrJobs(dB, np, expFile, pesaDir, iGl, isDel, isZipped, logger):
             cur.execute("UPDATE Exports SET Status=1 WHERE Id=?",(exportId,))
             logger.info('Export Id={} is now closed.'.format(exportId))
             if isDel:
-                logger.info("Deleting directory {}".format(exportDir))
+                logger.info("Deleting export directory {}".format(exportDir))
                 shutil.rmtree(exportDir)
         else :
             logger.info('Export Id={} is not closed.'.format(exportId))
@@ -314,7 +314,7 @@ def ImportCalc(arg):
         shutil.make_archive(destCalcDir, 'bztar', root_dir=destCalcDir, base_dir='./')
         shutil.rmtree(destCalcDir)
     if isDel:
-        writer("Deleting directory {}...".format(calcDir))
+        writer("Deleting job directory {}...".format(calcDir))
         shutil.rmtree(calcDir)
     return [dCalc["GeomId"],dCalc["CalcId"], destCalcDir, dCalc["StartGId"],sResults]
 
