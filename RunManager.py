@@ -20,7 +20,7 @@ constraint        = None         # geom tag constraints
 includePath       = False        # include geoms with `path` tags
 ignoreFiles       = []           # ignores the file extensions
 deleteAfterImport = True         # delete the files after successful import
-zipAfterImport    = False         # archive on save on GeomData
+zipAfterImport    = True         # archive on save on GeomData
 stdOut            = False        # print on terminal
 importOnConverge  = True         # only import MCSCF converged results
 #-----------------------------------------------------

@@ -6,18 +6,18 @@ from ConfigParser import SafeConfigParser
 
 
 
-# def saveData(file, data):
-#     np.savetxt( file, data ,delimiter="\t", fmt="%.8f") 
-#     file.write('\n')
-
-
-
 def readDB(db, calcId, cols):
     with sqlite3.connect(db) as con:
         cur = con.cursor()
         cur.execute("SELECT geomid,results from Calc where CalcId=?",(calcId,))
         CalcRow = [[i]+j.split() for i,j in cur]
-        CalcRow = np.array(CalcRow, dtype=np.float64)
+        try:
+            CalcRow = np.array(CalcRow, dtype=np.float64)
+        except:# somthing wrong with the res files
+            ind = len(CalcRow[0])
+            for i in CalcRow:
+                if ind!=len(i):
+                    raise Exception("Some thing wrong with the result of GeomID %s"%i[0])
 
         cur.execute("SELECT id,%s from Geometry"%cols)
         GeomRow = np.array(cur.fetchall())

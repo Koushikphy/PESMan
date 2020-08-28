@@ -3,9 +3,11 @@ import sqlite3
 import numpy as np
 from geometry import geomObj
 from multiprocessing import Pool
-from ConfigParser import SafeConfigParser
-
-
+# works both with python 2 and 3
+if sys.version_info.major>2:
+    from configparser import ConfigParser as ConfigParser
+else :
+    from ConfigParser import SafeConfigParser as ConfigParser
 
 sql_script = """
 BEGIN TRANSACTION;
@@ -136,7 +138,7 @@ def getKabsch_norm(geom):
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
 
-    scf = SafeConfigParser()
+    scf = ConfigParser()
     scf.read('pesman.config')
     dbFile = scf.get('DataBase', 'db')
     # nbrdb only to store distances, not going to be used in any calculations
@@ -166,7 +168,7 @@ if __name__ == "__main__":
         curNbr.executescript(sql_nbrtable_commands)
 
         # create the geometry list here
-        newGeomList =np.stack( np.mgrid[rho:rho:1j, 0:90:46j, 0:360:121j], axis=3).reshape(-1,3)
+        newGeomList =np.stack( np.mgrid[rho:rho:1j, 0:90:46j, 0:180:61j], axis=3).reshape(-1,3)
         newGeomList[:,1:] = np.deg2rad(newGeomList[:,1:])
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
         # if dbExist: 

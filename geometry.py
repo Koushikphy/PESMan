@@ -64,8 +64,8 @@ class Scattering(object):
         theta   = geomRow["theta"]
         phi     = geomRow["phi"]
         gId     = geomRow["Id"]
-        dphi    = np.deg2rad(3)/10.0    #  dphi is 2 degree
         dth     = np.deg2rad(2)/10.0    #  dtheta is 3 degree
+        dphi    = np.deg2rad(3)/10.0    #  dphi is 2 degree
 
 
         self.saveGeomFile(gId,rho,theta,phi,fileName)
