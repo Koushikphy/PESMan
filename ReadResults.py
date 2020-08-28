@@ -131,8 +131,8 @@ def parseMultiEnr(resArr,resDir):
 def parseMrciDdrNACT(resArr,resDir):
     assert resArr.shape[1]==18, 'Not enough data in result'
 
-    thetaList = np.unique(resArr[:,1])
     resArr[:,[1,2]] = np.rint(np.rad2deg(resArr[:,[1,2]]))
+    thetaList = np.unique(resArr[:,1])
     mrciData = resArr[:,0:6]
     tautData = np.abs(resArr[:,np.r_[0:3,6:12]])
     taupData = np.abs(resArr[:,np.r_[0:3,12:18]])

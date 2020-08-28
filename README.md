@@ -40,4 +40,5 @@
 4. Now start RunManager script to do multi calculation for all the geometries sequentially. Be careful about the depth value in the script. __multi calculation doesn't gain much from parallel running, so just run it in single processor.__
 5. Run `./PESMan.py export -cid 2 -j 1000 -n 3 -par` to parallely (2 process) export 1000, calc id 2 i.e. mrci-ddr job > Run > import as 
 `PESMan.py import -e <file> -ig wfu -n 3 -zip -del`. Don't forget to modify the processor value in pesman.config before running mrciddr jobs.
-6. At the end run `./PESMan.py zip -all` to archive all data in GeomData folder, if any.
+6. For H3 template, sometime the energy is done but the nact is failed and pesman can't import the job for that particular geometry, even though the enrgy result is available. In that case run the collectFailedMrci.py script to collect such jobs.
+7. At the end run `./PESMan.py zip -all` to archive all data in GeomData folder, if any.
