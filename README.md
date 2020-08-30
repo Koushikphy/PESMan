@@ -35,10 +35,10 @@
 
 ### Steps to run for H3:
 1. Modify `rho` in CreateNewDps.py (line 150) and run to create a grid of theta-phi for a fixed value of rho.
-2. Run `python PESMan.py addcalc` to add the multi and mrci-ddr calculation information to the database.
+2. Run `python PESMan.py addcalc` to add the multi and mrci-ddr calculation information to the database (defined in pesman.config).
 3. For first time run `python PESMan.py export -cid 1 -gid 1 -sid 0` to export 1st geometry to run the multi calulation > Run > import it with `PESMan.py import -e ....`
 4. Now start RunManager script to do multi calculation for all the geometries sequentially. Be careful about the depth value in the script. __multi calculation doesn't gain much from parallel running, so just run it in single processor.__
-5. Run `./PESMan.py export -cid 2 -j 1000 -n 3 -par` to parallely (2 process) export 1000, calc id 2 i.e. mrci-ddr job > Run > import as 
-`PESMan.py import -e <file> -ig wfu -n 3 -zip -del`. Don't forget to modify the processor value in pesman.config before running mrciddr jobs.
-6. For H3 template, sometime the energy is done but the nact is failed and pesman can't import the job for that particular geometry, even though the enrgy result is available. In that case run the collectFailedMrci.py script to collect such jobs.
+5. Run `./PESMan.py export -cid 2 -j 1000 -n 3 -par` to parallely (3 process) export 1000, calc id 2 i.e. mrci-ddr job > Run > import as 
+`PESMan.py import -e <file> -ig wfu -n 3 -zip -del`. `-ig wfu` ignores mrci-ddr wavefunction files during import as they are not necessary to save.
+6. For H3 template, sometime the energy is done but the nact is failed and pesman can't import the job for that particular geometry, even though the enrgy result is available. In that case run the `collectFailedMrci.py` script to collect such jobs for the job-run directory.
 7. At the end run `./PESMan.py zip -all` to archive all data in GeomData folder, if any.
