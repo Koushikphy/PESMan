@@ -1,4 +1,5 @@
 import os
+import sys
 import sqlite3
 import numpy as np
 from geometry import geomObj
