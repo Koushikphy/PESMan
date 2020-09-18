@@ -83,6 +83,7 @@ def ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, s
         else: # if parallel export is requested
             pool = Pool(processes=np)
             expDirs = pool.map(ExportCalc,jobs)
+            pool.close()
 
 
         # update the export table and expcalc tables with the exported jobs
@@ -271,6 +272,7 @@ def ImportNearNbrJobs(dB, np, expFile, pesaDir, iGl, isDel, isZipped, logger):
         else: # if parallel import is requested
             pool = Pool(processes=np)
             res = pool.map(ImportCalc,jobs)
+            pool.close()
 
         cur.executemany("INSERT INTO Calc (GeomId,CalcId,Dir,StartGId,Results) VALUES (?, ?, ?, ?, ?)", res)
         cur.executemany('DELETE FROM ExpCalc WHERE ExpId=? AND GeomId=? ',[(exportId,geomId) for geomId in geomIds])
