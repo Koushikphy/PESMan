@@ -168,7 +168,15 @@ if __name__ == "__main__":
         curNbr.executescript(sql_nbrtable_commands)
 
         # create the geometry list here
-        newGeomList =np.stack( np.mgrid[rho:rho:1j, 0:90:46j, 0:180:61j], axis=3).reshape(-1,3)
+        # newGeomList =np.stack( np.mgrid[rho:rho:1j, 0:90:46j, 0:180:61j], axis=3).reshape(-1,3)
+        
+        newGeomList = np.vstack([
+                 [rho,0,0],
+                 np.stack( np.mgrid[rho:rho:1j, 2:50:25j, 0:180:181j], axis=3).reshape(-1,3),
+                 np.stack( np.mgrid[rho:rho:1j, 51:90:40j, 0:180:181j], axis=3).reshape(-1,3)
+        ])
+
+
         newGeomList[:,1:] = np.deg2rad(newGeomList[:,1:])
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
 
