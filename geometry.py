@@ -166,7 +166,7 @@ class Scattering(object):
 
         path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohrs, getCart returns in angstorm
         # channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
-        linear  = np.abs(theta) < 1.0e-10
+        linear  = np.allclose(theta,np.pi/2.0)# np.abs(theta) < 1.0e-10
 
         l = ""
         if linear : l+=' linear'

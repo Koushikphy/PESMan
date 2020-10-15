@@ -24,6 +24,8 @@
 2. Use `-zip` preferably while importing to archive the data while keeping in GeomData, this will slow down the import/export process, but it heavily reduces file number and sizes. If you don't want to slow down the export/import, you can do the archiving altogether at the end too, using `./PESMan.py zip -all`.
 3. Though the neighbour database is created to keep the distances between neighbours, the database itself is never used in any of the calculation.
 4. RunManager saves the mmcscf iteration numbers in `IterMultiJobs.dat`, and only imports if its below 39 iteration.
+5. To add some new geometries to an existing data base, re-run the `CreateNewDbs.py` by providing the __new complete list of full geometries__. The script will check for existing geometries in the data base and update it with new additional geometries. This will modify all the neighbour geometry information, but won't interfere with any existing results in database.
+
 
 
 ### Notes for H3 system:

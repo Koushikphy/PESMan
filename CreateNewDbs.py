@@ -153,17 +153,16 @@ if __name__ == "__main__":
     rho = 2.5
     ranges = [4.5,np.deg2rad(30),np.deg2rad(30)]
 
-    if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
-        os.remove(dbFile)
-        dbExist = False
+    # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
+        # os.remove(dbFile)
+        # dbExist = False
     if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
         os.remove(nbrDbFile)
 
 
     with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
-        if not dbExist:
-            cur = con.cursor()
-            cur.executescript(sql_script)
+        cur = con.cursor()
+        if not dbExist: cur.executescript(sql_script)
 
         curNbr = conNbr.cursor()
         curNbr.executescript(sql_nbrtable_commands)
@@ -172,14 +171,17 @@ if __name__ == "__main__":
         newGeomList =np.stack( np.mgrid[rho:rho:1j, 0:90:46j, 0:180:61j], axis=3).reshape(-1,3)
         newGeomList[:,1:] = np.deg2rad(newGeomList[:,1:])
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
-        # if dbExist: 
-        #     cur.execute('select rho,phi from geometry')
-        #     oldTable = np.array(cur.fetchall())
-        #     if oldTable.size:
-        #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
-        #         if dupInd.size:
-        #             print("%s duplicates found in new list of geometries"%dupInd.size)
-        #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
+
+        if dbExist:
+            cur.execute('select rho,theta,phi from geometry')
+            oldTable = [list(i) for i in cur.fetchall()] # sqlite returns tuple and python being strongly typed, they have to manually cast
+            if len(oldTable):
+                dupInd = np.array([i in oldTable for i in newGeomList.tolist()]) # weired, direct numpy approach not working properly
+                dSize = dupInd[dupInd==True].shape[0]
+                uSize = dupInd[dupInd==False].shape[0]
+                if uSize:
+                    print("{} geometries already exist in the old database, {} additional geometries will be added".format(dSize, uSize))
+                    newGeomList = newGeomList[~dupInd]
 
 
         assert newGeomList.size, "No new geometries to add"
