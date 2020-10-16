@@ -9,6 +9,7 @@
 4. Modify and run `CreateNewDbs.py` to create the databases relevant to the system type.
 5. Modify functions in `ReadResults.py` files for reading results from databases.
 
+
 ## Usage:
 * Use PESMan `export` to export job.
 * Use PESMan `import` to import job after successful run.
@@ -25,7 +26,7 @@
 3. Though the neighbour database is created to keep the distances between neighbours, the database itself is never used in any of the calculation.
 4. RunManager saves the mmcscf iteration numbers in `IterMultiJobs.dat`, and only imports if its below 39 iteration.
 5. To add some new geometries to an existing data base, re-run the `CreateNewDbs.py` by providing the __new complete list of full geometries__. The script will check for existing geometries in the data base and update it with new additional geometries. This will modify all the neighbour geometry information, but won't interfere with any existing results in database.
-
+6. If some calc is semi successful i.e. if like mrci enrgy and ddr are done in a single calc and energy is successful but nact is failed, then run the `collectFailed.py` to store the semi successful jobs in a new table in database and also store the result in datafile
 
 
 ### Notes for H3 system:
@@ -42,5 +43,5 @@
 4. Now start RunManager script to do multi calculation for all the geometries sequentially. Be careful about the depth value in the script. __multi calculation doesn't gain much from parallel running, so just run it in single processor.__
 5. Run `./PESMan.py export -cid 2 -j 1000 -n 3 -par` to parallely (3 process) export 1000, calc id 2 i.e. mrci-ddr job > Run > import as 
 `PESMan.py import -e <file> -ig wfu -n 3 -zip -del`. `-ig wfu` ignores mrci-ddr wavefunction files during import as they are not necessary to save.
-6. For H3 template, sometime the energy is done but the nact is failed and pesman can't import the job for that particular geometry, even though the enrgy result is available. In that case run the `collectFailedMrci.py` script to collect such jobs for the job-run directory.
+6. For H3 template, sometime the energy is done but the nact is failed and pesman can't import the job for that particular geometry, even though the enrgy result is available. In that case run the `collectFailed.py` script to collect such jobs for the job-run directory.
 7. At the end run `./PESMan.py zip -all` to archive all data in GeomData folder, if any.
