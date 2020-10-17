@@ -102,7 +102,6 @@ def ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, s
 
         fPythonFile = "{}/RunJob{}.py".format(expDir, exportId)  # save the python file that will run the jobs
 
-        if calcId==1 : molInfo['proc'] = '1' # multi calculation doesn't gain at all from parallel, remove later
         if par: # export job to run parallel geometry
             createRunJobParallel(molInfo, fPythonFile)
         else: # run a single geometry, mandatory for job like primary mcscf
