@@ -67,7 +67,7 @@ with sqlite3.connect(dB) as con:
             if ind!=len(i):
                 raise Exception("Some thing wrong with the result of GeomID %s"%i[0])
 
-    cur.execute("SELECT id,rho,theta,phi from Geometry"%cols)
+    cur.execute("SELECT id,rho,theta,phi from Geometry")
     GeomRow = np.array(cur.fetchall())
 
     sortedIndex = np.searchsorted(GeomRow[:,0], CalcRow[:,0], sorter=GeomRow[:,0].argsort())
