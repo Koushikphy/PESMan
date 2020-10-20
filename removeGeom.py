@@ -30,7 +30,7 @@ def removeWfuFromArchieve(geom):
                 yield t 
 
     with tarfile.open(path) as tar: #  extract the file in that directory
-        for i in tar.getnames(): # check if the archive contains archive file
+        for i in tar.getnames(): # check if the archive contains wfu file
             if i.endswith('wfu') : 
                 break
         else:
@@ -58,4 +58,4 @@ indToDelete = data[~ind][:,0] # these geomids will be deleted
 
 # delete them in parallel
 p = Pool(4)
-p.map(removeWfuFromArchieve, indToDelete[:10])
+p.map(removeWfuFromArchieve, indToDelete)
