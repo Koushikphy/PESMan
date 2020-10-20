@@ -44,7 +44,9 @@ with sqlite3.connect(dB) as con:
             if(os.path.isfile(calcFile) and os.path.isfile(resFile)):
                 res = parseResult(resFile)
             # check if that geomid and calcid already exist in the database table
-
+            else:
+                continue
+            
             cur.execute('select count(*) FROM SemiCalc where GeomId=? and CalcId=?;',(geomId,calcId))
             counts = cur.fetchone()[0]
             if(counts==0): # no such information so can be added to the database

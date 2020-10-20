@@ -94,15 +94,14 @@ impDir  = scf.get('Directories', 'impdir')
 logFile = scf.get('Log', 'LogFile')
 molInfo = dict(scf.items('molInfo'))
 
-
-
-
-
-
 try:
     molInfo['extra'] = molInfo['extra'].split(',')
 except KeyError:
     molInfo['extra'] = []
+
+if isParallel:
+    molInfo['proc'] = '1'
+
 
 # create rundir and impdir if does'nt exist
 # for fold in [runDir, impDir]:
@@ -171,7 +170,6 @@ if __name__ == "__main__":
     # molInfo['proc'] = 1   # nothing is gained in parrallel for multi, so single is enough
     if isParallel:
         pool = Pool(processes=process)
-        molInfo['proc'] = 1
 
 
     try:
@@ -202,7 +200,7 @@ if __name__ == "__main__":
                 jobStatus = pool.map(utilityFunc, [[thisRunDir,i] for i in jobDirs])  
             else:
                 jobStatus = [ utilityFunc([thisRunDir,i]) for i in jobDirs   ]
-            # `thisRunDir` though being as global variable, can't be accessed from `utilityFunc` while on parallel processes
+            # `thisRunDir` though being a global variable, can't be accessed from `utilityFunc` while on parallel processes
 
 
             # NOTE: Not moving files to impdir, files will be imported directly from rundir, toggle comment to change

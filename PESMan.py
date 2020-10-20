@@ -346,7 +346,7 @@ if __name__ == '__main__':
         np = args.np
         iGl = args.ig
         isDel = args.delete
-        npTmp = "\n        No. processes    : {}".format(np) if np>1 else ''
+        npTmp = "\n        No. processes       : {}".format(np) if np>1 else ''
         txt = textwrap.dedent("""PESMan Import 
 -------------------------------------------------
         Database            : {}{}
