@@ -28,6 +28,10 @@ stdOut            = False         # print on terminal
 importOnConverge  = True         # only import MCSCF converged results
 #-----------------------------------------------------
 
+# process = int(sys.argv[1])
+# includePath = bool(int(sys.argv[1]))
+# maxJobs = int(sys.argv[1])
+
 templ    = None
 gidList  = []
 sidList  = []
@@ -75,9 +79,6 @@ def parseIteration(baseName):
         return False
     logger.info('Number of MCSCF iteration for {}: {}'.format(baseName,val))
     return True
-
-
-
 
 
 
