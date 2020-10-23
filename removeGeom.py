@@ -73,9 +73,9 @@ print(indToDelete)
 
 
 try:
-    choice = raw_input('Do you want to proceed (y/n)?')
+    choice = raw_input('Do you want to proceed (y/n)? ')
 except NameError:
-    choice = input('Do you want to proceed (y/n)?')
+    choice = input('Do you want to proceed (y/n)? ')
 
 
 if choice.strip().lower()[0]=='y':
