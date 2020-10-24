@@ -52,7 +52,7 @@ with sqlite3.connect(dB) as con:
             if(counts==0): # no such information so can be added to the database
                 result.append([ geomId, calcId, res ])
 
-    print('Number of new results added to database {}'.format(len(result)))
+    print('Number of new results added to database {}\n'.format(len(result)))
     cur.executemany("INSERT INTO SemiCalc (GeomId,CalcId,Results) VALUES (?, ?, ?)", result)
 
 
@@ -61,6 +61,7 @@ with sqlite3.connect(dB) as con:
     # query result from two tables
     cur.execute("SELECT geomid,results from Calc where CalcId=? union SELECT geomid,results from SemiCalc where CalcId=?",(2,2))
     CalcRow = [[i]+j.split()[:3] for i,j in cur]  # number 3 has to decided <-- 3 mrci energy
+    print('Result collected from database {}\n'.format(len(CalcRow)))
     try:
         CalcRow = np.array(CalcRow, dtype=np.float64)
     except:# somthing wrong with the res files
