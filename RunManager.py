@@ -4,17 +4,16 @@ import sys
 import shutil
 import logging
 import subprocess
-from ConfigParser import SafeConfigParser
-from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
-from ReadResults import runManagerUtil as readResult
-# from logging.handlers import TimedRotatingFileHandler
-from PESMan import MyFormatter, makeLogger
 from multiprocessing import Pool
+from PESMan import MyFormatter, makeLogger, parseConfig
+from ReadResults import runManagerUtil as readResult
+from ImpExp import ExportJobs, ImportJobs
+# from logging.handlers import TimedRotatingFileHandler
 
 
 
-####----------User specific options-----------#######
-process           = 2            # values more than 1 will invoke parallel 
+####--------------------User specific options----------------------------#######
+process           = 1            # values more than 1 will invoke parallel 
 calcId            = 1            # calculation ID
 depth             = 0            # maximum depth to look for
 maxJobs           = 10           # total number of jobs to perform
@@ -24,21 +23,17 @@ includePath       = False        # include geoms with `path` tags
 ignoreFiles       = []           # ignores the file extensions
 deleteAfterImport = True         # delete the files after successful import
 zipAfterImport    = True         # archive on save on GeomData
-stdOut            = False         # print on terminal
+stdOut            = False        # print on terminal
 importOnConverge  = True         # only import MCSCF converged results
-#-----------------------------------------------------
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
-# process = int(sys.argv[1])
-# includePath = bool(int(sys.argv[1]))
-# maxJobs = int(sys.argv[1])
 
 templ    = None
 gidList  = []
 sidList  = []
 iterFile = 'IterMultiJobs.dat' # saves the MCSCF iterations
-# jobs     = process       # one job to feed to each process
-isParallel= process >1  # use parallel implementation
-#############################################
+
 
 
 #NOTES:
@@ -59,49 +54,24 @@ isParallel= process >1  # use parallel implementation
 # 6. When running the parallel version DON'T try to stop this with SIGINT ( Ctrl+C shortcut). To kill the job use `kill` utility 
 #    or SIGSTOP (Ctrl+\)/SIGQUIT (Ctrl+Z)/SIGHUP signals what ever applicable.
 
-
-def parseIteration(baseName):
-    # If this returns `True` then the job is properly successful
-    outFile = baseName + '.out'
-    gId = re.findall(r'geom(\d+)-', outFile)[0]   # parse goem id, just for note
-    try:
-        with open(outFile) as f: txt = f.read()
-        val = re.findall(r'\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]   # parse the iteration number
-        val = int(val)
-    except:
-        import traceback
-        logger.info('Failed to parse MCSCF iteration. %s'%traceback.format_exc())
-        return
-    # iterLog.write('{:>6}      {:>6}     {:>6}\n'.format(exportId, gId, val))   # exportId is taken from global
-    iterLog.write('{:>6}     {:>6}\n'.format( gId, val))   # exportId is taken from global
-    if importOnConverge and val>38:   # flag true with no convergence, skip
-        logger.info('Number of MCSCF iteration for {}: {} Skipping import.'.format(baseName,val))
-        return False
-    logger.info('Number of MCSCF iteration for {}: {}'.format(baseName,val))
-    return True
+# process = int(sys.argv[1])
+# includePath = bool(int(sys.argv[1]))
+# maxJobs = int(sys.argv[1])
 
 
+config = parseConfig()
+
+dB      = config['DataBase']['db']
+pesDir  = config['Directories']['pesdir']
+expDir  = config['Directories']['expdir']
+runDir  = config['Directories']['rundir']
+impDir  = config['Directories']['impdir']
+logFile = config['Log']['logfile']
+molInfo = config['molInfo']
 
 
-
-scf= SafeConfigParser()
-scf.read('pesman.config')
-
-dB      = scf.get('DataBase', 'db')
-pesDir  = scf.get('Directories', 'pesdir')
-expDir  = scf.get('Directories', 'expdir')
-runDir  = scf.get('Directories', 'rundir')
-impDir  = scf.get('Directories', 'impdir')
-logFile = scf.get('Log', 'LogFile')
-molInfo = dict(scf.items('molInfo'))
-
-try:
-    molInfo['extra'] = molInfo['extra'].split(',')
-except KeyError:
-    molInfo['extra'] = []
-
-if isParallel:
-    molInfo['proc'] = '1'
+isParallel= process >1  # use parallel implementation
+if isParallel: molInfo['proc'] = '1'
 
 
 # create rundir and impdir if does'nt exist
@@ -120,7 +90,6 @@ if not os.path.exists(iterFile):
 else:
     iterLog= open(iterFile, 'a', buffering=1)
 
-npTmp = "\n        Parallel processes :   {}".format(process) if process>1 else ''
 
 logger.info('----------------------------------------------------------')
 logger.debug('''Starting PESMan RunManager
@@ -131,21 +100,46 @@ logger.debug('''Starting PESMan RunManager
         Depth              :   {}
         Result Step        :   {}
         Constraint         :   {}
-        Include path       :   {}
-        Ignore Files       :   {}
+        Include path       :   {}{}
         Archive            :   {}
         Delete on Import   :   {}
 ----------------------------------------------------------
-'''.format(os.getpid(), maxJobs, npTmp, calcId, depth, readResultsStep, constraint, 
-            includePath, ignoreFiles, deleteAfterImport, zipAfterImport))
+'''.format(
+    os.getpid(), maxJobs, 
+    "\n        Parallel processes :   {}".format(process) if process>1 else '', 
+    calcId, depth, readResultsStep, constraint, includePath, 
+    "\n        Ignore Files       :   {}".format(ignoreFiles) if ignoreFiles else '', 
+    deleteAfterImport, zipAfterImport
+    )
+)
 
+
+
+def parseIteration(baseName):
+    # If this returns `True` then the job is properly successful
+    outFile = baseName + '.out'
+    gId = re.findall(r'geom(\d+)-', outFile)[0]   # parse goem id, just for note
+    try:
+        with open(outFile) as f: txt = f.read()
+        val = re.findall(r'\s*(\d+).*\n\n\s*\*\* WVFN \*\*\*\*', txt)[0]   # parse the iteration number
+        val = int(val)
+    except:
+        import traceback
+        logger.info('Failed to parse MCSCF iteration. %s'%traceback.format_exc())
+        return
+    iterLog.write('{:>6}     {:>6}\n'.format( gId, val))   # exportId is taken from global
+    if importOnConverge and val>38:   # flag true with no convergence, skip
+        logger.info('Number of MCSCF iteration for {}: {} Skipping import.'.format(baseName,val))
+        return False
+    logger.info('Number of MCSCF iteration for {}: {}'.format(baseName,val))
+    return True
 
 
 
 
 def utilityFunc(arg): # getting one single individual job directory, inside the rundir
     thisRunDir,baseName = arg
-    os.chdir(thisRunDir+'/'+baseName)   # thisRunDir is taken from global
+    os.chdir(thisRunDir+'/'+baseName)   
 
     logger.info("Running Molpro Job {} ...".format(baseName))
 
@@ -153,7 +147,7 @@ def utilityFunc(arg): # getting one single individual job directory, inside the 
 
     if exitcode==0:
         logger.info("\nJob Successful for {}".format(baseName))
-        # if the job crossed maximum iteration then the calc_ file wont be renamed i.e. it would be marked as failed
+        #NOTE: if the job crossed maximum iteration then the calc_ file wont be renamed i.e. it would be marked as failed
         if parseIteration(baseName):
             file = "{}.calc".format(baseName)
             os.rename( file+'_', file)    # rename .calc_ file so that it can be imported
@@ -165,18 +159,16 @@ def utilityFunc(arg): # getting one single individual job directory, inside the 
     return exitcode==0   # let the main loop know this job is successful 
 
 
+
 if __name__ == "__main__":
     jobCounter = 0 # keeps a counter for the done jobs
     mainDirectory = os.getcwd()
-    # molInfo['proc'] = 1   # nothing is gained in parrallel for multi, so single is enough
-    if isParallel:
-        pool = Pool(processes=process)
-
+    if isParallel: pool = Pool(processes=process)
 
     try:
         while True: 
             if isParallel:
-                # exactly export `maxjobs` number of jobs, even though they are being exported in bunch
+                # check if `process` number of jobs can be exported, keepign total jobs exactly `maxjobs`
                 thisJobs = process if maxJobs-jobCounter>process else maxJobs-jobCounter  
                 logger.debug('  Starting Job No : {}-{}\n{}'.format( jobCounter+1,jobCounter+thisJobs, '*'*75))
             else:
@@ -185,10 +177,10 @@ if __name__ == "__main__":
 
 
             # will be exporting `process` number of jobs to run them in parallel
-            thisExpDir, exportId, jobDirs = ExportNearNbrJobs(dB, calcId, thisJobs, 1, expDir,pesDir, templ, gidList, sidList, depth,
+            thisExpDir, exportId, jobDirs = ExportJobs(dB, calcId, thisJobs, 1, expDir,pesDir, templ, gidList, sidList, depth,
                                                                 constraint, includePath, molInfo, False, logger)
 
-            jobCounter += len(jobDirs)  # always may not be all jobs exported
+            jobCounter += len(jobDirs)  # kept if exactly `process` number of jobs not exported
             thisRunDir  = thisExpDir.replace(expDir, runDir)
             thisImpDir  = thisExpDir.replace(expDir, impDir)
 
@@ -198,10 +190,11 @@ if __name__ == "__main__":
 
             # only the molpro run will be done in parallel
             if isParallel:
-                jobStatus = pool.map(utilityFunc, [[thisRunDir,i] for i in jobDirs])  
+                jobStatus = pool.map(utilityFunc, [[thisRunDir,i] for i in jobDirs])
             else:
-                jobStatus = [ utilityFunc([thisRunDir,i]) for i in jobDirs   ]
-            # `thisRunDir` though being a global variable, can't be accessed from `utilityFunc` while on parallel processes
+                jobStatus = [ utilityFunc([thisRunDir,i]) for i in jobDirs]
+            # `thisRunDir` though being a global variable, can't be accessed from `utilityFunc` while on parallel processes, 
+            # as it is created/updated after the porcess intialization
 
 
             # NOTE: Not moving files to impdir, files will be imported directly from rundir, toggle comment to change
@@ -211,7 +204,7 @@ if __name__ == "__main__":
             logger.info('')
 
             expFile = thisImpDir+'/export.dat'
-            ImportNearNbrJobs(dB, 1, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
+            ImportJobs(dB, 1, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
 
             # now delete the jobs directory in the ExpDir, if they are successful. 
             # job directories in RunDir are deleted inside the import funciton
@@ -219,8 +212,7 @@ if __name__ == "__main__":
                 shutil.rmtree(thisExpDir) 
             else: # some jobs failed so delete the successful ones only
                 for stat, fol in zip(jobStatus, jobDirs):
-                    if stat:
-                        shutil.rmtree(thisExpDir+'/'+fol)
+                    if stat: shutil.rmtree(thisExpDir+'/'+fol)
 
             logger.info('')
 
@@ -232,7 +224,7 @@ if __name__ == "__main__":
 
 
         logger.info("Reading results from database...")
-        readResult()
+        readResult(dB)
         logger.info("Total number of successful jobs done : {}\n{}\n".format(jobCounter, '*'*75))
     except AssertionError as e:
         logger.info('PESMan RunManager Stopped. %s'%e)

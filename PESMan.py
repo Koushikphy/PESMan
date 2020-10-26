@@ -1,17 +1,29 @@
 #!/usr/bin/env python
 
-import os,sys
+from __future__ import print_function
+import os
+import sys
 import shutil
 import logging 
-import tarfile
 import argparse
-import textwrap
-from itertools import izip_longest as izl
-from ConfigParser import SafeConfigParser
-from ImpExp import ImportNearNbrJobs, ExportNearNbrJobs
-from multiprocessing import Pool
 import subprocess
+from textwrap import dedent
+from multiprocessing import Pool
+from tarfile import open as tarOpen
+from sqlite3 import connect as sqlConnect
 # from logging.handlers import TimedRotatingFileHandler
+from ImpExp import ExportJobs,ImportJobs
+
+if sys.version_info.major>2:
+    from configparser import ConfigParser as ConfigParser
+    from itertools import zip_longest as izl
+else :
+    from ConfigParser import SafeConfigParser as ConfigParser
+    from itertools import izip_longest as izl
+
+
+
+
 
 
 class MyFormatter(logging.Formatter):
@@ -66,7 +78,7 @@ def zipAll(subStringList,np):
 # Extracts a compressed file into a folder and removes the file
 def unZipOne(path, extn = '.tar.bz2'):
     print("Extracting %s"%path)
-    with tarfile.open(path) as tar:
+    with tarOpen(path) as tar:
         tar.extractall(path=path.replace(extn,''))
     os.remove(path)
 
@@ -82,10 +94,9 @@ def unzipAll(base, extn = '.tar.bz2'):
 
 # delete geomdatas from a list of geomids
 def deleteCalcs(dB, pesDir, calcId, geomIdList):
-    import sqlite3
     geomStr = ' where calcid = %s and geomid in ('%calcId + ','.join(map(str, geomIdList)) + ')'
 
-    with sqlite3.connect(dB) as con:
+    with sqlConnect(dB) as con:
         cur = con.cursor()
 
         cur.execute('select geomid from expcalc' + geomStr)
@@ -113,8 +124,7 @@ def deleteCalcs(dB, pesDir, calcId, geomIdList):
 
 
 def status(dB):
-    import sqlite3
-    with sqlite3.connect(dB) as con:
+    with sqlConnect(dB) as con:
         cur = con.cursor()
         status = '-'*90+'\033[31m\n\033[5m\033[4mPESMan Status:\033[0m\t\t'
         cur.execute('select count(id) from Geometry')
@@ -172,7 +182,7 @@ def notNegetive(val):
 parser = argparse.ArgumentParser(
            prog='PESMan',
            formatter_class=argparse.RawTextHelpFormatter,
-           description=textwrap.dedent('''\
+           description=dedent('''\
 -----------------------------------------------------
 PESMan - a program to manage global PES calculations.
 -----------------------------------------------------
@@ -205,7 +215,7 @@ subparsers = parser.add_subparsers(title='Currently implemented sub-commands',de
 
 parser_export = subparsers.add_parser('export',
                         formatter_class=argparse.RawTextHelpFormatter,
-                        description=textwrap.dedent('''\
+                        description=dedent('''\
                         Export calculations of a certain type from the database.
                         A 'gen' type of export uses nearest neigbour algorithm to
                         search for best jobs to be exported, if there is dependency.
@@ -281,68 +291,69 @@ parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=T
                     help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
 
 
-
-
-
+def parseConfig(configFile='pesman.config'):
+    scf = ConfigParser()
+    scf.read(configFile)
+    config = {sec: dict(scf.items(sec)) for sec in scf.sections()}
+    config['CalcTypes']['type'] = [i.strip() for i in config['CalcTypes']['type'].split(',')]
+    config['CalcTypes']['template'] = [i.strip() for i in config['CalcTypes']['template'].split(',')]
+    config['CalcTypes']['desc'] = config['CalcTypes'].get('desc','')
+    config['molInfo']['extra'] = config['molInfo'].get('extra','').split(',')
+    return config
 
 
 if __name__ == '__main__':
     args = parser.parse_args()
 
-    scf = SafeConfigParser()
-    scf.read('pesman.config')
+    config = parseConfig()
+    dB = config['DataBase']['db']
+    assert os.path.exists(dB), "DataBase %s doesn't exists"%dB
 
-    dB = scf.get('DataBase', 'db')
-    if not os.path.exists(dB) : raise Exception("DataBase %s doesn't exists"%dB)
-    logFile = scf.get('Log', 'LogFile')
-    logger = makeLogger(logFile=logFile, stdout=True)
-    pesDir = scf.get('Directories', 'pesdir')
-
+    logger = makeLogger(logFile=config['Log']['logfile'], stdout=True)
+    pesDir = config['Directories']['pesdir']
+    expDir  = config['Directories']['expdir']
+    molInfo = config['molInfo']
+    clcInfo = config['CalcTypes']
 
     if args.subcommand == 'export':    # expport jobs
-        exportDir = scf.get('Directories', 'expdir')
-        molInfo = dict(scf.items('molInfo'))
-        try:
-            molInfo['extra'] = molInfo['extra'].split(',')
-        except KeyError:
-            molInfo['extra'] = []
 
-        calcId = args.calc_id
-        jobs = args.jobs
-        np = args.np
-        depth = args.Depth
-        gidList =args.gid_list
+        calcId  = args.calc_id
+        jobs    = args.jobs
+        np      = args.np
+        depth   = args.Depth
+        gidList = args.gid_list
         sidList = args.sid_list
-        templ = args.ComTemplate
-        const = args.const
-        inclp  = args.incl_path
-        par = args.parallel
-        
-        assert not (calcId==1 and par), "Requesting parallel geometry jobs for CalcId=1. Are you sure?"
+        templ   = args.ComTemplate
+        const   = args.const
+        inclp   = args.incl_path
+        par     = args.parallel
 
-        npTmp = "\n        No. processes    : {}".format(np) if np>1 else ''
-
-        txt = textwrap.dedent("""  PESMan Export
+        txt = dedent("""  PESMan Export
 -------------------------------------------------
         Database         : {}
         Calc Type Id     : {}
         PESDir           : {}
         Export Dir       : {}
         Number of Jobs   : {}{}
-        Depth            : {}
-        GeomID List      : {}
-        SartID List      : {}
+        Depth            : {}{}{}
         Parallel geometry: {}
         Template         : {}
         Constraint       : {}
         Include Path     : {}
         """.format( 
-            dB, calcId, pesDir, exportDir, jobs, npTmp, depth, gidList, sidList, par, templ if templ else 'Default', const, inclp
+            dB, calcId, pesDir, expDir, jobs, 
+            "\n        No. processes    : {}".format(np) if np>1 else '', 
+            depth,
+            "\n        GeomID List      : {}".format(gidList) if gidList else '' , 
+            "\n        SartID List      : {}".format(sidList) if sidList else '', 
+            par, 
+            templ if templ else 'Default',
+            const, inclp
         ))
         logger.info('\n-------------------------------------------------')
         logger.debug(txt)
         try:
-            ExportNearNbrJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList, depth, const, inclp, molInfo, par, logger)
+            ExportJobs(dB, calcId, jobs, np, expDir, pesDir, templ, gidList, sidList, depth, const, inclp, molInfo, par, logger)
         except AssertionError as e:
             logger.info('PESMan Export failed. %s'%e)
         except:
@@ -350,24 +361,26 @@ if __name__ == '__main__':
 
 
     elif args.subcommand == 'import':  # import jobs
-        isZipped = args.zip
-        np = args.np
-        iGl = args.ig
+        isZip = args.zip
+        np    = args.np
+        iGl   = args.ig
         isDel = args.delete
-        npTmp = "\n        No. processes       : {}".format(np) if np>1 else ''
-        txt = textwrap.dedent("""PESMan Import 
+        txt = dedent("""PESMan Import 
 -------------------------------------------------
         Database            : {}{}
-        PES Dir             : {}
-        Ignore files        : {}
+        PES Dir             : {}{}
         Delete after import : {}
         Archive directory   : {}
-        """.format(dB, npTmp, pesDir, iGl, isDel, isZipped))
+        """.format(dB, 
+        "\n        No. processes    : {}".format(np) if np>1 else '', 
+        pesDir, 
+        "\n        Ignore files        : {}".format(iGl) if iGl else '', 
+        isDel, isZip))
         logger.info('-------------------------------------------------')
         logger.debug(txt)
         try:
             for expFile in args.ExpFile: # accepts multiple export files
-                ImportNearNbrJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger)
+                ImportJobs(dB, np, expFile, pesDir, iGl, isDel, isZip, logger)
         except AssertionError as e:
             logger.info('PESMan Import failed. %s'%e)
         except:
@@ -375,26 +388,20 @@ if __name__ == '__main__':
 
 
     elif args.subcommand == 'addcalc': # add calculation infos
-        import sqlite3
-        names = map(str.strip, scf.get('CalcTypes','type').split(','))
-        templates = map(str.strip, scf.get('CalcTypes','template').split(','))
-        try:
-            desc = map(str.strip, scf.get('CalcTypes','desc').split(','))
-        except: # description field not found
-            desc = ''
 
-        with sqlite3.connect(dB) as con: 
+        with sqlConnect(dB) as con: 
             cur = con.cursor()
-            for nam, tem, des in izl(names, templates, desc, fillvalue=''):
-                stemp = open(tem).read()
+            # for nam, tem, des in izl(names, templates, desc, fillvalue=''):
+            for nam, tem, des in izl(clcInfo['type'], clcInfo['template'], clcInfo['desc'], fillvalue=''):
+                with open(tem) as f: stemp = f.read()
                 cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))
-                print "Template : '{0}' inserted into database".format(nam)
-            print "\n{0}\n{1:^10}{2:^15}{3:^20}{4:<20}\n{0}".format('='*99,'CalcType', "CalcName", "Description", 'Template')
+                print("Template : '{0}' inserted into database".format(nam))
+            print("\n{0}\n{1:^10}{2:^15}{3:^20}{4:<20}\n{0}".format('='*99,'CalcType', "CalcName", "Description", 'Template'))
             for row in cur.execute("SELECT Id,Type,desc,inptempl FROM CalcInfo"):
                 row = [str(i).split('\n') for i in row]
                 for line in izl(*row, fillvalue=''):
-                    print '{:^10}{:^15}{:^20}{:<20}'.format(*line)
-                print '-'*99
+                    print('{:^10}{:^15}{:^20}{:<20}'.format(*line))
+                print('-'*99)
 
 
     elif args.subcommand=='zip': # archive directiories
@@ -456,6 +463,6 @@ def checkBreaks(dB, sid):
                 doneGeom.add(geom)
                 break
         else:
-            print geom
+            print(geom)
             doneGeom.add(geom)
 

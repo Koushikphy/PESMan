@@ -1,13 +1,13 @@
 import os 
-import sqlite3 
 import numpy as np
+from sqlite3 import connect as sqlConnect
 from geometry import geomObj
-from ConfigParser import SafeConfigParser
+from PESMan import parseConfig
 
 
 
 def readDB(db, calcId, cols):
-    with sqlite3.connect(db) as con:
+    with sqlConnect(db) as con:
         cur = con.cursor()
         cur.execute("SELECT geomid,results from Calc where CalcId=?",(calcId,))
         CalcRow = [[i]+j.split() for i,j in cur]
@@ -152,10 +152,7 @@ def parseMrciDdrNACT(resArr,resDir):
 
 
 
-def runManagerUtil():
-    scf = SafeConfigParser()
-    scf.read('pesman.config')
-    dB = scf.get('DataBase', 'db')
+def runManagerUtil(dB):
     resDir = "Results"
     if not os.path.exists(resDir) : os.makedirs(resDir)
 
@@ -166,9 +163,8 @@ def runManagerUtil():
 
 
 def main():
-    scf = SafeConfigParser()
-    scf.read('pesman.config')
-    dB = scf.get('DataBase', 'db')
+    config = parseConfig()
+    dB = config['DataBase']['db']
     resDir = "Results"
     if not os.path.exists(resDir) : os.makedirs(resDir)
 

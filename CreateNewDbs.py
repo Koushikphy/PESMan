@@ -1,14 +1,12 @@
 import os
 import sys
-import sqlite3
 import numpy as np
-from geometry import geomObj
 from multiprocessing import Pool
-# works both with python 2 and 3
-if sys.version_info.major>2:
-    from configparser import ConfigParser as ConfigParser
-else :
-    from ConfigParser import SafeConfigParser as ConfigParser
+from sqlite3 import connect as sqlConnect
+from geometry import geomObj
+from PESMan import parseConfig
+
+
 
 sql_script = """
 BEGIN TRANSACTION;
@@ -139,11 +137,10 @@ def getKabsch_norm(geom):
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
 
-    scf = ConfigParser()
-    scf.read('pesman.config')
-    dbFile = scf.get('DataBase', 'db')
-    # nbrdb only to store distances, not going to be used in any calculations
-    nbrDbFile = scf.get('DataBase', 'nbr')
+    config = parseConfig()
+    dbFile = config['DataBase']['db']
+    nbrDbFile = config['DataBase']['nbr']
+
     dbExist = os.path.exists(dbFile)
     # neighbour limit to search for 
     lim = 30
@@ -160,7 +157,7 @@ if __name__ == "__main__":
         os.remove(nbrDbFile)
 
 
-    with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
+    with sqlConnect(dbFile) as con, sqlConnect(nbrDbFile) as conNbr:
         cur = con.cursor()
         if not dbExist: cur.executescript(sql_script)
 
@@ -231,7 +228,7 @@ if __name__ == "__main__":
     #     os.remove(nbrDbFile)
 
 
-    # with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
+    # with sqlConnect(dbFile) as con, sqlConnect(nbrDbFile) as conNbr:
     #     if not dbExist:
     #         cur = con.cursor()
     #         cur.executescript(sql_script)
@@ -292,7 +289,7 @@ if __name__ == "__main__":
     #     os.remove(nbrDbFile)
 
 
-    # with sqlite3.connect(dbFile) as con, sqlite3.connect(nbrDbFile) as conNbr:
+    # with sqlConnect(dbFile) as con, sqlConnect(nbrDbFile) as conNbr:
     #     if not dbExist:
     #         cur = con.cursor()
     #         cur.executescript(sql_script)

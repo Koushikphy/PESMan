@@ -1,6 +1,7 @@
-import os,re,sqlite3,sys
+import os,re,sys
 import numpy as np 
-from ConfigParser import SafeConfigParser
+from sqlite3 import connect as sqlConnect
+from PESMan import parseConfig
 from ImpExp import parseResult
 
 
@@ -10,12 +11,10 @@ from ImpExp import parseResult
 # Run this as `python <this_filename> <list of export.dat files>
 
 
-scf = SafeConfigParser()
-scf.read('pesman.config')
-dB = scf.get('DataBase', 'db')
+config = parseConfig()
+dB = config['DataBase']['db']
 
-
-with sqlite3.connect(dB) as con:
+with sqlConnect(dB) as con:
     cur = con.cursor()
     # create a new table that will hold the semi successful jobs, no other information is required at this moment
     cur.executescript('''
