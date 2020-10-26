@@ -164,7 +164,7 @@ def status(dB):
         # status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format('Total',size('.'),folders('.'),files('.')) + "-"*90
         print(status)
 
-size = lambda x: subprocess.check_output(['du','-shx', x]).split()[0]
+size = lambda x: subprocess.check_output(['du','-shx', x]).split()[0].decode()
 # folders = lambda x : int(subprocess.check_output('find %s  -maxdepth 1 -type d | wc -l'%x, shell=True))-1
 # files   = lambda x : int(subprocess.check_output('find %s  -maxdepth 1 -type f | wc -l'%x, shell=True))
 
