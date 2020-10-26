@@ -212,6 +212,7 @@ epilog='BEWARE: A PES is purely an artifact of Born-Oppenheimer separation!!!')
 
 
 subparsers = parser.add_subparsers(title='Currently implemented sub-commands',dest='subcommand')
+subparsers.required = True  #<-- subparser is not required by default in >=py3.3
 
 parser_export = subparsers.add_parser('export',
                         formatter_class=argparse.RawTextHelpFormatter,
