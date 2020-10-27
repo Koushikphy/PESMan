@@ -300,6 +300,7 @@ def parseConfig(configFile='pesman.config'):
     config['CalcTypes']['template'] = [i.strip() for i in config['CalcTypes']['template'].split(',')]
     config['CalcTypes']['desc'] = config['CalcTypes'].get('desc','')
     config['molInfo']['extra'] = config['molInfo'].get('extra','').split(',')
+    config['molInfo']['exe'] = config['molInfo'].get('exe','molpro')  #<-- default mopro executable
     return config
 
 

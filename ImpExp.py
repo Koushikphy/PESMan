@@ -349,7 +349,8 @@ def createRunJob(molInfo, file):
             expDirs = f.read().split("\\n",1)[1].split()[1:]
 
         mainDirectory = os.getcwd()
-        fLog = open("run.log","a")
+        fLog = open("run.log","a", buffering=1)
+        fLog.write("Running exported jobs on host - {{}}\\n".format(os.uname()[1]) + "-"*75 + "\\n")
 
         # now execute each job
         for RunDir in expDirs:
@@ -363,7 +364,7 @@ def createRunJob(molInfo, file):
             fComBaseFile = RunDir+".com"
 
             os.chdir(RunDir)
-            exitcode = subprocess.call(["molpro",fComBaseFile, "-d", "{}", "-W .", "-n", "{}"] + {})
+            exitcode = subprocess.call(["{}",fComBaseFile, "-d", "{}", "-W .", "-n", "{}"] + {})
             os.chdir(mainDirectory)
 
             if exitcode == 0:
@@ -377,7 +378,7 @@ def createRunJob(molInfo, file):
         writeLog(fLog, "."*70, True)
         fLog.close()
 
-        '''.format(molInfo['scrdir'], molInfo['proc'], molInfo['extra'])
+        '''.format(molInfo['exe'],molInfo['scrdir'], molInfo['proc'], molInfo['extra'])
     with open(file, 'w') as f:
         f.write(dedent(txt))
     # leading 0 is invalid in py3 but required in py2 to signify octal number, so this explicit syntax is used
@@ -401,6 +402,7 @@ def createRunJobParallel(molInfo, file):
 
         mainDirectory = os.getcwd()
         fLog = open("run.log","a", buffering=1)
+        fLog.write("Running exported jobs on host - {{}}\\n".format(os.uname()[1]) + "-"*75 + "\\n")
 
 
         def writeLog(msg): # writes to the log file
@@ -418,7 +420,7 @@ def createRunJobParallel(molInfo, file):
                 raise Exception("No '.calc' or '.calc_' file found in {{}}".format(RunDir))
             fComBaseFile = RunDir + ".com"
             os.chdir(RunDir)  # will be run on 1 processor
-            exitcode = subprocess.call(["molpro", fComBaseFile, "-d", '{}', "-W ."] +{})
+            exitcode = subprocess.call(["{}", fComBaseFile, "-d", '{}', "-W ."] +{})
             os.chdir(mainDirectory)
 
             if exitcode == 0:
@@ -434,7 +436,7 @@ def createRunJobParallel(molInfo, file):
             p.map(runMol,expDirs)
 
         writeLog("All Jobs Completed\\n"+"-"*90)
-        fLog.close()'''.format(molInfo['scrdir'], molInfo['extra'], molInfo['proc'])
+        fLog.close()'''.format(molInfo['exe'],molInfo['scrdir'], molInfo['extra'], molInfo['proc'])
     with open(file, 'w') as f:
         f.write(dedent(txt))
     os.chmod(file,0o766)

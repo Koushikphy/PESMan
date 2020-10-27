@@ -94,6 +94,7 @@ else:
 logger.info('----------------------------------------------------------')
 logger.debug('''Starting PESMan RunManager
 ----------------------------------------------------------
+        Host               :   {}
         Process ID         :   {}
         Total Jobs         :   {}{}
         CalcId             :   {}
@@ -105,14 +106,13 @@ logger.debug('''Starting PESMan RunManager
         Delete on Import   :   {}
 ----------------------------------------------------------
 '''.format(
-    os.getpid(), maxJobs, 
+    os.uname()[1],os.getpid(), maxJobs, 
     "\n        Parallel processes :   {}".format(process) if process>1 else '', 
     calcId, depth, readResultsStep, constraint, includePath, 
     "\n        Ignore Files       :   {}".format(ignoreFiles) if ignoreFiles else '', 
     deleteAfterImport, zipAfterImport
     )
 )
-
 
 
 def parseIteration(baseName):
@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
             if not jobCounter%readResultsStep:
                 logger.info("Reading results from database.")
-                readResult()
+                readResult(dB)
 
             if jobCounter >= maxJobs : break
 

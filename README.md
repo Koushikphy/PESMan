@@ -11,10 +11,9 @@
 
 
 
-## Usage:
+## Basic commands:
 * Use PESMan `export` to export job.
 * Use PESMan `import` to import job after successful run.
-* Use `RunManager.py` to sequencially/parallely export and import.
 * Use PESMan `zip`/`unzip` to archive or extract job folders.
 * Use PESMan `delete` to delete any geometry/calculation from database
 * Use PESMan `status` anytime to check current status of calculation
@@ -22,9 +21,8 @@
 
 
 ## Notes & Tips:
-1. PESMan utility is compatible with both pyhton 2.7 and 3.x.
 1. Initial mulit calculation is done by taking initial guess from neighobouring geometries. The `RunManager.py` is used for this purpose.
-After few (50-100) initial geometries are done sequentially and serially, the parallel implementation of `RunManager` can be invoked by changing the `process` value in the script to more than `1`, value `1` meaning serial execution. In that case, the script will export a bunch of jobs from the neighbourhood of successful geometries and run them in parallel.
+After few (50-100) initial geometries are done sequentially and serially, parallel `RunManager` can be invoked by changing the `process` value in the script to more than `1`, value `1` meaning serial execution. In that case, the script will export a bunch of jobs from the neighbourhood of successful geometries and run them in parallel.
 1. `export`/`import` both options support parallel export/import of multiple geometries, just provide the number of process like `-n 4`.
 1. Molpro calculation of Calc Ids other than 1 usually doesn't depend on other geometries so, its more efficient to run those jobs in parallel. Specify the option `-par` during export. Number of parallel processes is taken from the `pesman.config`
 1. If no `-par` flag is provided or the `RunManager` is used in serial mode, then `proc` value in `pesman.config` is used to run the molpro itself in parallel using its internal MPI implementation.
@@ -42,7 +40,7 @@ After few (50-100) initial geometries are done sequentially and serially, the pa
 
 
 ### Notes for H3 system:
-1. The calculation is done in two steps/template. First is the multi which is one done sequencially for each one of the geoemtry. The other one does mrci-ddr together in one template, this is done in parallelly for multiple geometry.
+1. The calculation is done in two steps/template. First is the multi which is one done sequencially/parallely for each one of the geoemtry. The other one does mrci-ddr together in one template, this is done in parallelly for multiple geometry.
 2. In multi case only the concerned geometry file is created while in mrci-ddr case 4 additional geometry are also created for the ddr nact. The values of dphi/dtheta, for simplicity, __are hard coded in the geometry file and in the template__.
 3. The RunManager itself parses the multi energy files, to parse and save the nact and mrci data run the readresult script.
 
