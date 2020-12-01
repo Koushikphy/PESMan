@@ -137,10 +137,10 @@ def ExportCalc(arg):  # python 2.7 multiprocessing cant handle argument more tha
         startBaseName = "{}-{}".format(b,a)
         if os.path.isdir(startDir):   # not in zipped format, copy it to a new name
             shutil.copy("{}/{}.wfu".format(startDir,startBaseName), "{}/{}.wfu".format(exportDir,baseName))
-            shutil.copy(startDir+ "/%s.wfu"%startBaseName, exportDir+"/%s.wfu"%baseName )
+            # shutil.copy(startDir+ "/%s.wfu"%startBaseName, exportDir+"/%s.wfu"%baseName )
         else:                         # file is in tar
-            tar = tarOpen(startDir+".tar.bz2")
-            tar.extract("./%s.wfu"%startBaseName, path=exportDir) # open tar file and rename it
+            with tarOpen(startDir+".tar.bz2") as tar:
+                tar.extract("./%s.wfu"%startBaseName, path=exportDir) # open tar file and rename it
             os.rename(exportDir+"/%s.wfu"%startBaseName, exportDir+"/%s.wfu"%baseName)
 
     txt = template.replace("$F$",baseName)

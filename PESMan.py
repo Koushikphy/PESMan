@@ -374,7 +374,7 @@ if __name__ == '__main__':
         Delete after import : {}
         Archive directory   : {}
         """.format(dB, 
-        "\n        No. processes    : {}".format(np) if np>1 else '', 
+        "\n        No. processes       : {}".format(np) if np>1 else '', 
         pesDir, 
         "\n        Ignore files        : {}".format(iGl) if iGl else '', 
         isDel, isZip))
