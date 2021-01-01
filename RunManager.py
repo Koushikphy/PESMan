@@ -2,10 +2,9 @@ import re
 import os
 import sys
 import shutil
-import logging
 import subprocess
 from multiprocessing import Pool
-from PESMan import MyFormatter, makeLogger, parseConfig
+from PESMan import  makeLogger, parseConfig
 from ReadResults import runManagerUtil as readResult
 from ImpExp import ExportJobs, ImportJobs
 # from logging.handlers import TimedRotatingFileHandler

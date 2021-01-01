@@ -81,7 +81,7 @@ def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList,
             jobs.append([
                 geomId, geom, calcId, expDir, template,calcName, startGId, startDir, ind, logger.info if np==1 else print
             ])
-        # the logging module though thread safe, can't write from multiple processes, so when multiprocessing is used just print to stdout
+        # the logging module though thread safe, can't write from multiple processes, so with multiprocessing simple print is used
         # This situation can be handled properly with an explicit threading queue, but I didn't want to make it all that complicated
         # That means in parallel case the statements inside ExportCalc won't be logged to PESMan.log, only be print to console
         if np==1:
