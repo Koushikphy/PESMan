@@ -6,7 +6,7 @@ import numpy as np
 # from multiprocessing import Pool
 
 
-def removeWfuFromArchieve(geom):
+def removeGeom(geom):
 
     path = 'GeomData/geom%d'%geom
 

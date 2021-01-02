@@ -151,8 +151,8 @@ if __name__ == "__main__":
     ranges = [4.5,np.deg2rad(30),np.deg2rad(30)]
 
     # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
-        # os.remove(dbFile)
-        # dbExist = False
+    #     os.remove(dbFile)
+    #     dbExist = False
     if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
         os.remove(nbrDbFile)
 
@@ -179,13 +179,17 @@ if __name__ == "__main__":
 
         if dbExist:
             cur.execute('select rho,theta,phi from geometry')
-            oldTable = [list(i) for i in cur.fetchall()] # sqlite returns tuple and python being strongly typed, they have to manually cast
+            # sqlite returns tuple and python being strongly typed, they have to manually cast
+            oldTable = [list(i) for i in cur.fetchall()] 
             if len(oldTable):
-                dupInd = np.array([i in oldTable for i in newGeomList.tolist()]) # weired, direct numpy approach not working properly
+                # weired, direct numpy approach not working properly
+                dupInd = np.array([i in oldTable for i in newGeomList.tolist()])
                 dSize = dupInd[dupInd==True].shape[0]
                 uSize = dupInd[dupInd==False].shape[0]
                 if uSize:
-                    print("{} geometries already exist in the old database, {} additional geometries will be added".format(dSize, uSize))
+                    print("{} geometries already exist in the old database, {} additional geometries will be added".format(
+                        dSize, uSize)
+                    )
                     newGeomList = newGeomList[~dupInd]
 
 
@@ -210,7 +214,9 @@ if __name__ == "__main__":
 
             cur.execute('UPDATE Geometry SET Nbr = ? where Id=?', (' '.join(map(str,indexes)), gId))
             # curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, indexes[i], i, distances[i]) for i in range(lim)])
-            curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", [(gId, ind, i, dis) for i, (ind,dis) in enumerate(zip(indexes, distances))] )
+            curNbr.executemany("INSERT INTO NbrTable VALUES (?,?,?,?)", 
+                [(gId, ind, i, dis) for i, (ind,dis) in enumerate(zip(indexes, distances))] 
+            )
         # # save the geomlist in a datafile
         geomList[:,2:] = np.rad2deg(geomList[:,2:])
         np.savetxt("geomdata.txt", geomList, fmt=['%d', '%.8f', '%.8f', '%.8f'], delimiter='\t')

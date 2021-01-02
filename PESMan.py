@@ -121,6 +121,20 @@ def deleteCalcs(dB, pesDir, calcId, geomIdList):
             print("CalcId = {}, GeomId = {} deleted from CalcTable and GeomData".format(calcId,geomId))
 
 
+def resetCalcs(db):
+    # deleteCalcs for all calculations 
+    # clear geomdata 
+    # clear expdir and rundir
+    with sqlConnect(dB) as con:
+        cur = con.cursor()
+        print("Clearing up tables Calc, ExpCalc, Exports")
+        cur.execute("delete from Calc")
+        cur.execute("delete from ExpCalc")
+        cur.execute("delete from Exports")
+    print("Deleting directories GeomData, ExpDir, RunDir")
+    shutil.rmtree('GeomData')
+    shutil.rmtree('ExpDir')
+    shutil.rmtree('RunDir')
 
 
 def status(dB):
@@ -151,7 +165,7 @@ def status(dB):
         cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = [i for i, in cur.fetchall()]
         if "SemiCalc" in tables:
-            leS = cur.execute("SELECT count(*) from SemiCalc;")
+            cur.execute("SELECT count(*) from SemiCalc;")
             print("No. of results in SemiCalc table {}".format(cur.fetchone()[0]))
 
         status = "\033[31m\n\033[4mDirectory Stats:\033[0m\t\t\n" + "="*90 + "\n"
@@ -160,7 +174,7 @@ def status(dB):
             status += " {:<13} ---  {}\n".format(s,size(s))
         status += " {:<13} ---  {}\n".format('Total',size('.')) + "-"*90 
         # for s in subDirs: # also prints number of files and folders
-            # status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format(s,size(s),folders(s),files(x))
+        #   status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format(s,size(s),folders(s),files(x))
         # status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format('Total',size('.'),folders('.'),files('.')) + "-"*90
         print(status)
 
@@ -225,8 +239,10 @@ parser_export = subparsers.add_parser('export',
                         help='Export calculations of a given type')
 
 
-parser_export.add_argument('-j', '--jobs', metavar='N', type=checkPositive, default=1, help='Number of jobs to export.\n ')
-parser_export.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, help='Number of parallel processes to use during export.\n ')
+parser_export.add_argument('-j', '--jobs', metavar='N', type=checkPositive, default=1, 
+                    help='Number of jobs to export.\n ')
+parser_export.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, 
+                    help='Number of parallel processes to use during export.\n ')
 parser_export.add_argument('--calc-id','-cid', metavar='CID', type=checkPositive, required=True,
                     help='Id of calculation type.\n ')
 parser_export.add_argument('--gid-list','-gid', metavar='LGID', nargs='+',  type=checkPositive, default=[], 
@@ -250,7 +266,8 @@ parser_import = subparsers.add_parser('import', description='Import calculations
 
 parser_import.add_argument('-e','--exp', metavar='LIST', nargs='+', dest='ExpFile', required=True,
                     help=''' Specify one/multiple export file for import, generated during export.\n ''')
-parser_import.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, help='Number of parallel processes to use during import.\n ')
+parser_import.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, 
+                    help='Number of parallel processes to use during import.\n ')
 parser_import.add_argument('-ig', metavar="LIST", nargs='+', type=str, default=[],
                     help="List file extensions to ignore during import\n ")
 parser_import.add_argument('-del', default=False,dest='delete', action="store_true" ,
@@ -268,7 +285,8 @@ subparsers.add_parser('status', description='Check current PESMan Status\n ', he
 
 parser_zip = subparsers.add_parser('zip', description='Archive one/multiple directory or all individual geom folders.\n ', 
                     help = 'Archive one/multiple directory or all individual geom folders.')
-parser_zip.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, help='Number of parallel processes to use during archiving.\n ')
+parser_zip.add_argument('-n','--np', metavar='NP', type=checkPositive, default=1, 
+                    help='Number of parallel processes to use during archiving.\n ')
 parser_zip.add_argument('-d', metavar="LIST", nargs='+', type=str, default=[], 
                     help='Provide path(s) of folder(s) to archive.\n ' )
 parser_zip.add_argument('-all' ,metavar="DIR", nargs='*', type=str, 
@@ -290,7 +308,8 @@ parser_delete = subparsers.add_parser('delete', description='Delete one/multiple
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
 parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, 
                     help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
-
+parser_delete.add_argument('-reset',metavar='RESET',type=bool,default=False, action='store_true',
+                    help="Remove everything from tables Exports, Calc and ExpCalc, but keeps geometry and calculation info")
 
 def parseConfig(configFile='pesman.config'):
     scf = ConfigParser()
@@ -432,16 +451,19 @@ if __name__ == '__main__':
 
 
     elif args.subcommand== 'delete': # delete data
-        calcId = args.cid
-        gid = args.gid
-        logger.debug('Deleting GeomIds: {}'.format(gid))
-        geomIdList = []
-        for ll in gid:
-            c = [int(i) for i in ll.split('-')]
-            if len(c)==2: # a range is given, flat it out
-                c = [c[0]+i for i in range(c[1]-c[0]+1)]
-            geomIdList.extend(c)
-        deleteCalcs(dB, pesDir, calcId, geomIdList)
+        if args.reset:
+            resetCalcs(dB)
+        else:
+            calcId = args.cid
+            gid = args.gid
+            logger.debug('Deleting GeomIds: {}'.format(gid))
+            geomIdList = []
+            for ll in gid:
+                c = [int(i) for i in ll.split('-')]
+                if len(c)==2: # a range is given, flat it out
+                    c = [c[0]+i for i in range(c[1]-c[0]+1)]
+                geomIdList.extend(c)
+            deleteCalcs(dB, pesDir, calcId, geomIdList)
 
 
     elif args.subcommand =='status': # check pesman status
@@ -460,7 +482,7 @@ def checkBreaks(dB, sid):
     allGeom = [[i, map(int,j.split())] for i,j in cur]
 
     doneGeom = {sid}  # initial start id
-    noNbr = []
+    # noNbr = []
     for geom,nbr in allGeom:
         if geom in doneGeom: continue
         for nn in nbr:

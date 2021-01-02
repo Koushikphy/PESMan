@@ -54,8 +54,8 @@ iterFile = 'IterMultiJobs.dat' # saves the MCSCF iterations
 #    or SIGSTOP (Ctrl+\)/SIGQUIT (Ctrl+Z)/SIGHUP signals what ever applicable.
 
 # process = int(sys.argv[1])
-# includePath = bool(int(sys.argv[1]))
-# maxJobs = int(sys.argv[1])
+# includePath = bool(int(sys.argv[2]))
+# maxJobs = int(sys.argv[3])
 
 
 config = parseConfig()
@@ -142,7 +142,9 @@ def utilityFunc(arg): # getting one single individual job directory, inside the 
 
     logger.info("Running Molpro Job {} ...".format(baseName))
 
-    exitcode = subprocess.call(["molpro", "-d", molInfo['scrdir'], "-W .", "-n", molInfo['proc'], baseName+'.com']+ molInfo['extra'])
+    exitcode = subprocess.call(
+            [molInfo['exe'], "-d", molInfo['scrdir'], "-W .", "-n", molInfo['proc'], baseName+'.com']+ molInfo['extra']
+        )
 
     if exitcode==0:
         logger.info("\nJob Successful for {}".format(baseName))
