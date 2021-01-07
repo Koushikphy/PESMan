@@ -152,7 +152,9 @@ def parseMrciDdrNACT(resArr,resDir):
 
 
 
-def runManagerUtil(dB):
+def parseMultiEnr_Util():
+    config = parseConfig()
+    dB = config['DataBase']['db']
     resDir = "Results"
     if not os.path.exists(resDir) : os.makedirs(resDir)
 
@@ -162,7 +164,7 @@ def runManagerUtil(dB):
 
 
 
-def main():
+def parseMrciDdrNACT_Util():
     config = parseConfig()
     dB = config['DataBase']['db']
     resDir = "Results"
@@ -176,4 +178,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parseMrciDdrNACT_Util()
