@@ -3,7 +3,7 @@ import re
 import os
 import shutil
 from glob import glob
-from textwrap import dedent 
+from textwrap import dedent
 from multiprocessing import Pool
 from tarfile import open as tarOpen
 from sqlite3 import connect as sqlConnect, Row as sqlRow
@@ -31,7 +31,7 @@ def genCalcFile(CalcId,GeomId,CalcName,Basename,sid,fileName,Desc=""):
         f.write(txt)
 
 
-def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList, 
+def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList,
                     depth, constDb, includePath, molInfo, par, logger):
     # Main export function that exports a given number of jobs for a specified calcid type
     # following collects the geomid that are exportable and the calc table id which will be used as their start info
@@ -40,7 +40,6 @@ def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList,
     else:
         ExpGeomList = GetExpGeomNearNbr(dB,calcId, gidList, sidList, jobs, depth, constDb, includePath)
 
-    # with sqlite3.connect(dB) as con:
     with sqlConnect(dB) as con:
         con.row_factory=sqlRow
         cur = con.cursor()
@@ -55,7 +54,6 @@ def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList,
         cur.execute("INSERT INTO Exports (CalcId) VALUES (?)", (calcId,))
         exportId = cur.lastrowid
 
-        # expDir = "{}/Export{}-{}{}".format(exportDir, exportId, InfoRow["type"], calcId)
         expDir = "{}/Export{}-{}{}".format(exportDir, exportId, calcName, calcId)
         # remove the export directory if already exists, may have created from some failed export.
         if os.path.exists(expDir):  shutil.rmtree(expDir) #<<<--- shouldn't have happened
@@ -63,10 +61,8 @@ def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList,
 
         if templ:  # if template given use that, o/w use from calcinfo table
             with open(templ,'r') as f: template = f.read()
-        # else:
-        #     template = calcTmpl
 
-        # calcName = calcName
+
         jobs = []
         for ind, (geomId,startId) in enumerate(ExpGeomList, start=1):
             cur.execute('SELECT * from Geometry WHERE Id=?',(geomId,))
@@ -137,7 +133,6 @@ def ExportCalc(arg):  # python 2.7 multiprocessing cant handle argument more tha
         startBaseName = "{}-{}".format(b,a)
         if os.path.isdir(startDir):   # not in zipped format, copy it to a new name
             shutil.copy("{}/{}.wfu".format(startDir,startBaseName), "{}/{}.wfu".format(exportDir,baseName))
-            # shutil.copy(startDir+ "/%s.wfu"%startBaseName, exportDir+"/%s.wfu"%baseName )
         else:                         # file is in tar
             with tarOpen(startDir+".tar.bz2") as tar:
                 tar.extract("./%s.wfu"%startBaseName, path=exportDir) # open tar file and rename it
@@ -154,7 +149,6 @@ def ExportCalc(arg):  # python 2.7 multiprocessing cant handle argument more tha
 
 def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inclPath):
     # Get the exportable geometries and their start id for mulit jobs, returns
-    # with sqlite3.connect(dB) as con:
     with sqlConnect(dB) as con:
         cur = con.cursor()
 
@@ -166,7 +160,6 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
 
         cur.execute("SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,))
         ExcludeGeomIds.update((i for (i,) in cur))
-        # ExcludeGeomIds.update(lPrblmGeomIds)
 
         if gidList:
             sidList += [-1]*(len(gidList)-len(sidList)) # fill sidList if some missing
@@ -260,7 +253,6 @@ def ImportJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger):
         exp_row = cur.fetchone()
         assert exp_row,        "Export Id = {} not found in data base".format(exportId)
         assert exp_row[0] ==0, "Export Id = {} is already closed.".format(exportId)
-        # importCount = 0
 
         jobs,geomIds = [],[]
         # now obtain list of jobs which can be imported.
@@ -297,7 +289,15 @@ def ImportJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger):
         logger.info("{} Job(s) have been successfully imported.\n".format(len(geomIds)))
 
 
+# WARNING::: `ImportCalc` deletes and moves the files but the database is not updated simultaneously and the same is done 
+# at the end to easily# use multiprocessing here. usually this doesnot make any  problem, 
+# but if the import process carshes at some mid way, then the relevant files will be deleted/moved but no information 
+# will be present in the database
+#^^^ fix this somehow
+#^^^ one solution is don not delte the files. and if reimport needs to be done then it will just replace the files in the GeomData
 
+#NOTE: add an option to check the length of the result data being parsed, and stop if thers something wrong. 
+# This will break the above system
 
 def ImportCalc(arg):
     [calcDir,calcFile,pesDir,igList, zipped,isDel,writer] = arg
@@ -314,9 +314,9 @@ def ImportCalc(arg):
 
 
     for iFile in glob("{}/*.*".format(calcDir)):
-        if os.path.splitext(iFile)[1][1:] in igList: continue  # copy all file except for ones ignore list
+        if os.path.splitext(iFile)[1][1:] in igList: continue  # copy all file except for ones in ignore list
         # rename file, `multinact2-geom111-1` -> `multinact2-geom111`
-        oFile = destCalcDir + "/" + re.sub(r'-\d+','',os.path.basename(iFile))   
+        oFile = destCalcDir + "/" + re.sub(r'-\d+','',os.path.basename(iFile))
         shutil.copy(iFile, oFile)
     if zipped:                                                                  # archive the folder if specified
         shutil.make_archive(destCalcDir, 'bztar', root_dir=destCalcDir, base_dir='./')
@@ -370,7 +370,7 @@ def createRunJob(molInfo, file):
             if exitcode == 0:
                 writeLog(fLog, "Job Successful.", True)
                 # rename .calc_ file so that it can be imported
-                os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))    
+                os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))
             else:
                 writeLog(fLog, "Job Failed.", True)
 
@@ -382,7 +382,7 @@ def createRunJob(molInfo, file):
     with open(file, 'w') as f:
         f.write(dedent(txt))
     # leading 0 is invalid in py3 but required in py2 to signify octal number, so this explicit syntax is used
-    os.chmod(file,0o766)  
+    os.chmod(file,0o766)
 
 
 
@@ -426,7 +426,7 @@ def createRunJobParallel(molInfo, file):
             if exitcode == 0:
                 writeLog("Job Successful for "+ RunDir)
                 # rename .calc_ file so that it can be imported
-                os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))    
+                os.rename( "{{0}}/{{0}}.calc_".format(RunDir), "{{0}}/{{0}}.calc".format(RunDir))
             else:
                 writeLog("Job Failed for     " + RunDir)
 

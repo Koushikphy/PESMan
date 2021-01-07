@@ -415,7 +415,6 @@ if __name__ == '__main__':
             cur.execute('SELECT Type from CalcInfo')
             existingNames = [i for (i,) in cur]
             assert any([i not in existingNames for i in clcInfo['type']]), "Some Calc name(s) already exists in database"
-            # for nam, tem, des in izl(names, templates, desc, fillvalue=''):
             for nam, tem, des in izl(clcInfo['type'], clcInfo['template'], clcInfo['desc'], fillvalue=''):
                 with open(tem) as f: stemp = f.read()
                 cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))

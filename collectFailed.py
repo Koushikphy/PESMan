@@ -1,5 +1,5 @@
 import os,re,sys
-import numpy as np 
+import numpy as np
 from sqlite3 import connect as sqlConnect
 from PESMan import parseConfig
 from ImpExp import parseResult
@@ -29,35 +29,41 @@ with sqlConnect(dB) as con:
 
         exportDir = os.path.abspath(os.path.dirname(expFile))   # get the main export directory
         exportId  = re.findall(r'Export(\d+)-', exportDir)[0]     # get the export id, from the directroy name
-    
+
         cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(exportId,))
 
         for geomId, calcDir in cur.fetchall():
             calcFile= "{0}/{1}/{1}.calc_".format(exportDir, calcDir) # calcfile name
-            resFile= "{0}/{1}/{1}.res".format(exportDir, calcDir) # calcfile name
+            resFile= "{0}/{1}/{1}.res".format(exportDir, calcDir) # res name
+
+            if not os.path.isfile(calcFile): # not a failed job
+                continue
+            if not os.path.isfile(resFile): # `res` file does not exists, nothing to do here
+                continue
+
             with open(calcFile,'r') as f:
                 for i in f:
                     if i.strip().startswith('CalcId'):
                         calcId = int(i.split(':')[1])
                         break
-            if(os.path.isfile(calcFile) and os.path.isfile(resFile)):
-                res = parseResult(resFile)
+                else: # no clacid found, never should have happened
+                    assert False, "Bad calc file."
+
             # check if that geomid and calcid already exist in the database table
-            else:
-                continue
-            
             cur.execute('select count(*) FROM SemiCalc where GeomId=? and CalcId=?;',(geomId,calcId))
             counts = cur.fetchone()[0]
-            if(counts==0): # no such information so can be added to the database
+            if(counts==0): # no such information so can be added to the database otherwise just continue
+
+                res = parseResult(resFile)
                 result.append([ geomId, calcId, res ])
 
-    print('Number of new results added to database {}\n'.format(len(result)))
+    # add the result into database
     cur.executemany("INSERT INTO SemiCalc (GeomId,CalcId,Results) VALUES (?, ?, ?)", result)
+    print('Number of new results added to database {}\n'.format(len(result)))
 
 
 
-# now save the result in a datafile ================================================
-    # query result from two tables
+    # now save the result in a datafile, query result from two tables, check the calc id
     cur.execute("SELECT geomid,results from Calc where CalcId=? union SELECT geomid,results from SemiCalc where CalcId=?",(2,2))
     CalcRow = [[i]+j.split()[:3] for i,j in cur]  # number 3 has to decided <-- 3 mrci energy
     print('Result collected from database {}\n'.format(len(CalcRow)))

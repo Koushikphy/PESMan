@@ -58,23 +58,23 @@ def removeGeom(geom):
 
 
 # sample the geomdatas to delete
-data = np.loadtxt('./geomdata.txt')
+data = np.loadtxt('./geomdata.txt', usecols=(0,))
 data = np.array(data, dtype=np.int)
 
-ind = data[:,0]%3==0  # keep geomid divisible by 3
+ind = data%3==0  # keep geomid divisible by 3
 
 ind[:2] = True # also keep the first two geometries as they are 0 phi (0,0),(1,0), just such
 
-indToDelete = data[~ind][:,0] # these geomids will be deleted
+indToDelete = data[~ind]# these geomids will be deleted
 
 print('Geometries with geomid not divisible by 3 will be deleted except geomid = 0 and 1.')
 print('The following %d no of geometries from GeomData will be removed'%len(indToDelete))
 print(indToDelete)
 
 
-try:
+try: # python2
     choice = raw_input('Do you want to proceed (y/n)? ')
-except NameError:
+except NameError: #pytho3 and above
     choice = input('Do you want to proceed (y/n)? ')
 
 
