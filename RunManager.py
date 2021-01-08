@@ -17,7 +17,7 @@ calcId            = 1            # calculation ID
 depth             = 0            # maximum depth to look for
 maxJobs           = 10           # total number of jobs to perform
 perIterJob        = 20           # export this number of jobs per iteration
-readResultsStep   = 100          # step to read result
+readResultsStep   = 500          # step to read result
 constraint        = None         # geom tag constraints
 includePath       = False        # include geoms with `path` tags
 ignoreFiles       = []           # ignores the file extensions
@@ -27,7 +27,7 @@ stdOut            = False        # print on terminal
 importOnConverge  = True         # only import MCSCF converged results
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-#process cant be greater than perIterJob
+
 
 templ    = None
 gidList  = []
@@ -45,13 +45,14 @@ iterFile = 'IterMultiJobs.dat' # saves the MCSCF iterations
 #    so the script uses 1 core to run the molpro whenever the parallel execution is opted. Modify the code below to remove that.
 # 6. When running the parallel version DON'T try to stop this with SIGINT ( Ctrl+C shortcut). To kill the job use `kill` utility
 #    or SIGSTOP (Ctrl+\)/SIGQUIT (Ctrl+Z)/SIGHUP signals what ever applicable.
-# WARN : Below code is configured not to use any Imp/Run Dir. Be careful about that
 
-# calcId = int(sys.argv[1])
-# process = int(sys.argv[2])
-# includePath = bool(int(sys.argv[3]))
-# maxJobs = int(sys.argv[4])
-# perIterJob = int(sys.argv[5])
+
+calcId = int(sys.argv[1])
+process = int(sys.argv[2])
+includePath = bool(int(sys.argv[3]))
+maxJobs = int(sys.argv[4])
+perIterJob = int(sys.argv[5])
+ignoreFiles = [] if calcId==1 else ['wfu']
 
 
 
@@ -176,8 +177,8 @@ if __name__ == "__main__":
 
 
             # will be exporting `perIterJob` number of jobs to run them in parallel
-            thisExpDir, exportId, jobDirs = ExportJobs(dB, calcId, thisJobs, 1, expDir,pesDir, templ, gidList, sidList, depth,
-                                                                constraint, includePath, molInfo, False, logger)
+            thisExpDir, exportId, jobDirs = ExportJobs(dB, calcId, thisJobs, process, expDir,pesDir, templ, gidList, sidList, depth,
+                                                                constraint, includePath, molInfo, isParallel, logger)
 
             jobCounter += len(jobDirs)  # kept if exactly `perIterJob` number of jobs not exported
             thisRunDir = thisExpDir     # job will be run in the same folder
@@ -192,7 +193,7 @@ if __name__ == "__main__":
             logger.info('')
 
             expFile = thisImpDir+'/export.dat'
-            ImportJobs(dB, 1, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
+            ImportJobs(dB, process, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
 
             # # now delete the jobs directory in the ExpDir, if they are successful.
             # # job directories in RunDir are deleted inside the import funciton

@@ -308,8 +308,7 @@ parser_delete = subparsers.add_parser('delete', description='Delete one/multiple
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
 parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, 
                     help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
-parser_delete.add_argument('-reset',metavar='RESET',type=bool,default=False, action='store_true',
-                    help="Remove everything from tables Exports, Calc and ExpCalc, but keeps geometry and calculation info")
+parser_delete.add_argument('-reset',metavar='RESET',default=False, action='store_true',help="Remove everything from tables Exports, Calc and ExpCalc, but keeps geometry and calculation info")
 
 def parseConfig(configFile='pesman.config'):
     scf = ConfigParser()
@@ -412,13 +411,20 @@ if __name__ == '__main__':
 
         with sqlConnect(dB) as con: 
             cur = con.cursor()
-            cur.execute('SELECT Type from CalcInfo')
-            existingNames = [i for (i,) in cur]
-            assert any([i not in existingNames for i in clcInfo['type']]), "Some Calc name(s) already exists in database"
+            cur.execute('SELECT Type,Id from CalcInfo')
+            existingCalcs = dict([[i,int(j)] ] for i,j in cur.fetchall() )
+
+            # assert any([i not in existingNames for i in clcInfo['type']]), "Some Calc name(s) already exists in database"
             for nam, tem, des in izl(clcInfo['type'], clcInfo['template'], clcInfo['desc'], fillvalue=''):
                 with open(tem) as f: stemp = f.read()
-                cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))
-                print("Template : '{0}' inserted into database".format(nam))
+                calcNumber = existingCalcs.get(nam,0)
+                if calcNumber==0: # calculation does not exist
+                    cur.execute("INSERT INTO CalcInfo (Type,InpTempl,Desc) VALUES (?, ?, ?)", (nam, stemp,des))
+                    print("Template : '{0}' inserted into database".format(nam))
+                else: # calculation does not exist, modify the existing calc
+                    cur.execute("UPDATE CalcInfo SET InpTempl=? where ID=?",(stemp,calcNumber))
+                    print("Template : '{0}' updated in database".format(nam))
+
             print("\n{0}\n{1:^10}{2:^15}{3:^20}{4:<20}\n{0}".format('='*99,'CalcType', "CalcName", "Description", 'Template'))
             for row in cur.execute("SELECT Id,Type,desc,inptempl FROM CalcInfo"):
                 row = [str(i).split('\n') for i in row]
@@ -433,7 +439,7 @@ if __name__ == '__main__':
         allPat = args.all 
         for path in paths: # if d not provided, its empty anyway
             zipOne(path)
-        
+
         # `-all` is an optional argument with optional values of unknown lenght
         # i.e `-all`, `-all abc` , `-all abc xyz` all are valid
         if allPat is not None:            # means `-all` flag is given

@@ -17,7 +17,7 @@ geometry=$F$.xyz
 {mrci;occ,12,4;wf,3,1,1,0;state,3;save,6000.2;dm,8000.2;option,nstati=4;maxiter,200,200}
 show,energy
 table,energy
-save,$F$.res
+save,$F$.res,new
 title, Energies ---  $F$
 
 
