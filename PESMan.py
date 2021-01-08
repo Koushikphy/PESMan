@@ -154,6 +154,7 @@ def status(dB):
         for i,name in enumerate(names, start=1):
             cur.execute('select sum(NumCalc) from Exports where calcid=?',(i,))
             tE = cur.fetchone()[0]
+            tE = tE if tE else 0
             cur.execute('select count(*) from calc where calcid=?',(i,))
             tD = cur.fetchone()[0]
             cur.execute('select count(*) from ExpCalc where calcid=?',(i,))
@@ -308,7 +309,8 @@ parser_delete = subparsers.add_parser('delete', description='Delete one/multiple
 parser_delete.add_argument('-cid' ,metavar="CID", type=str,required=True, help='Provide the calcid to remove.\n ' )
 parser_delete.add_argument('-gid', metavar="GID",nargs='+', type=str, required=True, 
                     help='Provide one or multiple geomids to remove.\nUse "-" to provide a range.\n ')
-parser_delete.add_argument('-reset',metavar='RESET',default=False, action='store_true',help="Remove everything from tables Exports, Calc and ExpCalc, but keeps geometry and calculation info")
+parser_delete.add_argument('-reset', default=False, action='store_true',
+                    help="Remove everything from tables Exports, Calc and ExpCalc, but keeps geometry and calculation info")
 
 def parseConfig(configFile='pesman.config'):
     scf = ConfigParser()
