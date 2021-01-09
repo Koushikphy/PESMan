@@ -203,22 +203,18 @@ if __name__ == "__main__":
             #     for stat, fol in zip(jobStatus, jobDirs):
             #         if stat: shutil.rmtree(thisExpDir+'/'+fol)
 
-            logger.info('')
-
+            logger.info("\nReading results from database.")
             if not jobCounter%readResultsStep:
                 if calcId==1:
                     parseMultiEnr_Util()
                 else:
                     parseMrciDdrNACT_Util()
 
-            #     logger.info("Reading results from database.")
-            #     readResult(dB)
 
             if jobCounter >= maxJobs : break
 
 
         logger.info("Reading results from database...")
-        # readResult(dB)
         if calcId==1:
             parseMultiEnr_Util()
         else:
