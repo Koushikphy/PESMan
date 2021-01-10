@@ -1,5 +1,5 @@
 import os
-# import sys
+import sys
 import numpy as np
 from multiprocessing import Pool
 from sqlite3 import connect as sqlConnect
@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
     # #%%%%%%%%%%%%%%%%%%%%%%%%%% for scattering hyperspherical %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     sql_script = sql_script.replace('$$', 'rho REAL,\ntheta REAL,\nphi REAL,')
-    rho = 10.5
+    rho = float(sys.argv[1])
     ranges = [4.5,np.deg2rad(30),np.deg2rad(30)]
 
     # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database

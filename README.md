@@ -31,23 +31,19 @@
 6. The RunManager depends on the successfull run of the neighbouring geometries to export a particular job. If a large number of jobs are failed or the database doesn't have enough neighbour information the RunManager sequence can break. In that case, a new job has to be exported manully.
 5. To add some new geometries to an existing data base, re-run the `CreateNewDbs.py` by providing the __new complete list of full geometries__. The script will check for existing geometries in the data base and update it with new additional geometries. This will modify all the neighbour geometry information, but won't interfere with any existing results in database.
 6. If some calc is semi successful i.e. if like mrci enrgy and ddr are done in a single calc and energy is successful but nact is failed, then run the `collectFailed.py` by providing the `export.dat` as a command-line argument to store the semi successful jobs in a new table in database. This script will also store the result in datafile.
+7. Running `python PESMan.py addcalc` for first time will add the calc names and template to the database. If you run the same again with same calc names, PESMan instead of inserting a new calcinfo, will update the existing info template
 
-
-
-
-
-### Notes for H3 system:
-1. The calculation is done in two steps/template. First is the multi which is one done sequencially/parallely for each one of the geoemtry. The other one does mrci-ddr together in one template, this is done in parallelly for multiple geometry.
-2. In multi case only the concerned geometry file is created while in mrci-ddr case 4 additional geometry are also created for the ddr nact. The values of dphi/dtheta, for simplicity, __are hard coded in the geometry file and in the template__.
-3. The RunManager itself parses the multi energy files, to parse and save the nact and mrci data run the readresult script.
 
 
 ### Steps to run for H3:
-1. Modify `rho` in CreateNewDps.py (line 150) and run to create a grid of theta-phi for a fixed value of rho.
+#### Lazy steps, Tl;dr
+* specify rho value in `runman.sh` and run it.  
+#### Detailed steps
+1. Modify `rho` value in CreateNewDps.py and run to create a grid of theta-phi for a fixed value of rho.
 2. Run `python PESMan.py addcalc` to add the multi and mrci-ddr calculation information to the database (defined in pesman.config).
 3. For first time run `python PESMan.py export -cid 1 -gid 1 -sid 0` to export 1st geometry to run the multi calulation > Run > import it with `PESMan.py import -e ....`
-4. Now start RunManager script to do multi calculation for all the geometries sequentially. Be careful about the depth value in the script. __multi calculation doesn't gain much from parallel running, so just run it in single processor.__
+4. Now start RunManager script to do multi calculation for all the geometries sequentially. For first geometries it has to be done one-by-one sequencially, after that it can be run in bunches. Be careful about the depth value in the script. __multi calculation doesn't gain much from parallel running, so just run it in single processor.__
 5. Run `./PESMan.py export -cid 2 -j 1000 -n 3 -par` to parallely (3 process) export 1000, calc id 2 i.e. mrci-ddr job > Run > import as 
-`PESMan.py import -e <file> -ig wfu -n 3 -zip -del`. `-ig wfu` ignores mrci-ddr wavefunction files during import as they are not necessary to save.
+`PESMan.py import -e <file> -ig wfu -n 3 -zip -del`. `-ig wfu` ignores mrci-ddr wavefunction files during import as they are not necessary to save. Or the better way is to use the `RunManger` again to export/run/import the mrci-nact jobs
 6. For H3 template, sometime the energy is done but the nact is failed and pesman can't import the job for that particular geometry, even though the enrgy result is available. In that case run the `collectFailed.py` script to collect such jobs for the job-run directory.
 7. At the end run `./PESMan.py zip -all` to archive all data in GeomData folder, if any.

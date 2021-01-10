@@ -12,7 +12,7 @@ geometry=$F$.xyz
 {mcscf;config;occ,12,4;wf,3,1,1,0;state,6;start,2140.2;orbital,2140.2;maxiter,40;noextra}
 show,energy
 table,energy
-save,$F$.res
+save,$F$.res,new
 title, Energies ---  $F$
 
 ---
