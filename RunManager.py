@@ -203,8 +203,8 @@ if __name__ == "__main__":
             #     for stat, fol in zip(jobStatus, jobDirs):
             #         if stat: shutil.rmtree(thisExpDir+'/'+fol)
 
-            logger.info("\nReading results from database.")
             if not jobCounter%readResultsStep:
+                logger.info("\nReading results from database.")
                 if calcId==1:
                     parseMultiEnr_Util()
                 else:
