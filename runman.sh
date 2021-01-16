@@ -37,11 +37,12 @@ cd ../../
 
 # pass commandline arguments as <calcID> <process> <includepath> <maxJobs> <perIterJob>
 python RunManager.py 1 1 0 150 1  # first 100 jobs serially
-python RunManager.py 1 4 0 12000 4 # non path parallel jobs
-python RunManager.py 1 4 1 12000 4 # path jobs
+python RunManager.py 1 4 0 2000 4   # non path parallel jobs 
+python RunManager.py 1 4 0 12000 20 # non path parallel jobs in higher bunches
+python RunManager.py 1 4 1 12000 20 # path jobs
 
 # run the mrci nact jobs
-python RunManager.py 2 5 1 12000 50 # path jobs
+python RunManager.py 2 4 1 12000 50 
 
 # import energy values from the failed nact jobs
 ls ExpDir/Export*-mrciddr2/export.dat | xargs python collectFailed.py
