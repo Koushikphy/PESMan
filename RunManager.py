@@ -113,6 +113,7 @@ logger.debug('''Starting PESMan RunManager
 
 
 def parseIteration(baseName):
+    # calc id other than 1 is not multi jobs, so no iteration check required
     if calcId !=1: return True
     # If this returns `True` then the job is properly successful
     outFile = baseName + '.out'
@@ -184,24 +185,16 @@ if __name__ == "__main__":
             thisRunDir = thisExpDir     # job will be run in the same folder
             thisImpDir = thisRunDir     # job will be imported from the same folder
 
-            # only the molpro run will be done in parallel
+
             if isParallel:
-                jobStatus = pool.map(utilityFunc, [[thisRunDir,i] for i in jobDirs])
+                pool.map(utilityFunc, [[thisRunDir,i] for i in jobDirs])
             else:
-                jobStatus = [ utilityFunc([thisRunDir,i]) for i in jobDirs]
+                [utilityFunc([thisRunDir,i]) for i in jobDirs]
 
             logger.info('')
 
             expFile = thisImpDir+'/export.dat'
             ImportJobs(dB, process, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
-
-            # # now delete the jobs directory in the ExpDir, if they are successful.
-            # # job directories in RunDir are deleted inside the import funciton
-            # if all(jobStatus): # all jobs are successful, so delete the whole directory
-            #     shutil.rmtree(thisExpDir)
-            # else: # some jobs failed so delete the successful ones only
-            #     for stat, fol in zip(jobStatus, jobDirs):
-            #         if stat: shutil.rmtree(thisExpDir+'/'+fol)
 
             if not jobCounter%readResultsStep:
                 logger.info("\nReading results from database.")
@@ -209,7 +202,6 @@ if __name__ == "__main__":
                     parseMultiEnr_Util()
                 else:
                     parseMrciDdrNACT_Util()
-
 
             if jobCounter >= maxJobs : break
 
