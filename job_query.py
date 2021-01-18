@@ -36,7 +36,3 @@ def getDetails(userName, ip, location, passwd=None):
     print("Database last modified on : ",bb)
     print('-'*90,'\n')
     client.close()
-
-
-getDetails('bijit', '192.168.31.164', "/home/bijit/KOUSHIK/H3_AB_INITIO/RHO_7.25")
-getDetails('sandip', '192.168.31.59', "~/KOUSHIK/H3_AB_INITIO/RHO_8.25")
