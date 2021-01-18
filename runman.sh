@@ -1,23 +1,13 @@
 #!/bin/bash
-
-
+# only used when submitting jobs with PBS
 #PBS -N rho_6.0
 #PBS -j oe
 #PBS -l nodes=node1
-#cd $PBS_O_WORKDIR
-###cat $PBS_NODEFILE > nodeList
-
+#cd $PBS_O_WORKDIR 
 
 set -e
 
-
-echo '--------------------------------------------'
-printf 'Starting PESMan    %(%Y-%m-%d %H:%M:%S)T\n'
-echo '--------------------------------------------'
-echo
-
 # create database and add the calculations
-
 python CreateNewDbs.py 10.0
 python PESMan.py addcalc
 
@@ -46,9 +36,3 @@ python RunManager.py 2 4 1 12000 50
 
 # import energy values from the failed nact jobs
 ls ExpDir/Export*-mrciddr2/export.dat | xargs python collectFailed.py
-
-
-echo '--------------------------------------------'
-printf 'PESMan complete    %(%Y-%m-%d %H:%M:%S)T\n'
-echo '--------------------------------------------'
-echo
