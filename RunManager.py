@@ -189,7 +189,8 @@ if __name__ == "__main__":
             if isParallel:
                 pool.map(utilityFunc, [[thisRunDir,i] for i in jobDirs])
             else:
-                [utilityFunc([thisRunDir,i]) for i in jobDirs]
+                for i in jobDirs : utilityFunc([thisRunDir,i])
+
 
             logger.info('')
 
@@ -198,19 +199,13 @@ if __name__ == "__main__":
 
             if not jobCounter%readResultsStep:
                 logger.info("\nReading results from database.")
-                if calcId==1:
-                    parseMultiEnr_Util()
-                else:
-                    parseMrciDdrNACT_Util()
+                parseMultiEnr_Util() if calcId==1 else parseMrciDdrNACT_Util()
 
             if jobCounter >= maxJobs : break
 
 
         logger.info("Reading results from database...")
-        if calcId==1:
-            parseMultiEnr_Util()
-        else:
-            parseMrciDdrNACT_Util()
+        parseMultiEnr_Util() if calcId==1 else parseMrciDdrNACT_Util()
 
         logger.info("Total number of successful jobs done : {}\n{}\n".format(jobCounter, '*'*75))
     except AssertionError as e:
