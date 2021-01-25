@@ -3,6 +3,7 @@
 from __future__ import print_function
 import os
 import sys
+import time
 import shutil
 import logging 
 import argparse
@@ -178,6 +179,8 @@ def status(dB):
         #   status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format(s,size(s),folders(s),files(x))
         # status += " {:<13} ---  {}  ({:>3} folders & {:>3} files)\n".format('Total',size('.'),folders('.'),files('.')) + "-"*90
         print(status)
+        lastM = time.ctime(os.path.getmtime(os.path.expanduser(dB)))
+        print("Database last modified on : {} \n".format(lastM))
 
 size = lambda x: subprocess.check_output(['du','-shx', x]).split()[0].decode()
 # folders = lambda x : int(subprocess.check_output('find %s  -maxdepth 1 -type d | wc -l'%x, shell=True))-1
