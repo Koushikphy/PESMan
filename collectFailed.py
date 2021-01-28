@@ -40,8 +40,7 @@ with sqlConnect(dB) as con:
             #     continue
             # if not os.path.isfile(resFile): # `res` file does not exists, nothing to do here
             #     continue
-
-            if (not os.path.isfile(calcFile)) or (not os.path.isfile(resFile)) : continue
+            if not (os.path.isfile(calcFile) and os.path.isfile(resFile)): continue
 
             # with open(calcFile,'r') as f:
             #     for i in f:
