@@ -29,25 +29,27 @@ with sqlConnect(dB) as con:
 
         exportDir = os.path.abspath(os.path.dirname(expFile))   # get the main export directory
         exportId  = re.findall(r'Export(\d+)-', exportDir)[0]     # get the export id, from the directroy name
-
+        calcId    = re.findall(r'Export\d+-\w+(\d+)',exportDir)[0]
         cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(exportId,))
 
         for geomId, calcDir in cur.fetchall():
             calcFile= "{0}/{1}/{1}.calc_".format(exportDir, calcDir) # calcfile name
             resFile= "{0}/{1}/{1}.res".format(exportDir, calcDir) # res name
 
-            if not os.path.isfile(calcFile): # not a failed job
-                continue
-            if not os.path.isfile(resFile): # `res` file does not exists, nothing to do here
-                continue
+            # if not os.path.isfile(calcFile): # not a failed job
+            #     continue
+            # if not os.path.isfile(resFile): # `res` file does not exists, nothing to do here
+            #     continue
 
-            with open(calcFile,'r') as f:
-                for i in f:
-                    if i.strip().startswith('CalcId'):
-                        calcId = int(i.split(':')[1])
-                        break
-                else: # no clacid found, never should have happened
-                    assert False, "Bad calc file."
+            if (not os.path.isfile(calcFile)) or (not os.path.isfile(resFile)) : continue
+
+            # with open(calcFile,'r') as f:
+            #     for i in f:
+            #         if i.strip().startswith('CalcId'):
+            #             calcId = int(i.split(':')[1])
+            #             break
+            #     else: # no clacid found, never should have happened
+            #         assert False, "Bad calc file."
 
             # check if that geomid and calcid already exist in the database table
             cur.execute('select count(*) FROM SemiCalc where GeomId=? and CalcId=?;',(geomId,calcId))

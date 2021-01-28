@@ -72,6 +72,8 @@ def centroid(geom):
 # calculate RMSD distance after kabsch rotation
 #@jit('float64(float64[:,:], float64[:,:])',fastmath=True,nopython=True)
 def kabsch_rmsd(p,q):
+    p = np.ascontiguousarray(p)
+    q = np.ascontiguousarray(q)
     c = np.dot(np.transpose(p), q)                   # covariance matrix
     v, _, w = np.linalg.svd(c)                       # rotaion matrix using singular value decomposition
     if (np.linalg.det(v) * np.linalg.det(w)) < 0.0 : # proper sign of matrix for right-handed coordinate system
@@ -131,9 +133,6 @@ def getKabsch_norm(geom):
 
 
 
-
-
-
 # WARNING!!! Do not pollute the module level namespace while using multiprocessing module
 if __name__ == "__main__":
 
@@ -150,11 +149,8 @@ if __name__ == "__main__":
     rho = float(sys.argv[1])
     ranges = [4.5,np.deg2rad(30),np.deg2rad(30)]
 
-    # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
-    #     os.remove(dbFile)
-    #     dbExist = False
-    if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
-        os.remove(nbrDbFile)
+
+    if os.path.exists(nbrDbFile):  os.remove(nbrDbFile)
 
 
     with sqlConnect(dbFile) as con, sqlConnect(nbrDbFile) as conNbr:
@@ -165,14 +161,11 @@ if __name__ == "__main__":
         curNbr.executescript(sql_nbrtable_commands)
 
         # create the geometry list here
-        # newGeomList =np.stack( np.mgrid[rho:rho:1j, 0:90:46j, 0:180:61j], axis=3).reshape(-1,3)
-        
         newGeomList = np.vstack([
                  [rho,0,0],
                  np.stack( np.mgrid[rho:rho:1j, 2:50:25j, 0:180:181j], axis=3).reshape(-1,3),
                  np.stack( np.mgrid[rho:rho:1j, 51:90:40j, 0:180:181j], axis=3).reshape(-1,3)
         ])
-
 
         newGeomList[:,1:] = np.deg2rad(newGeomList[:,1:])
         # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
@@ -227,11 +220,7 @@ if __name__ == "__main__":
     # sql_script = sql_script.replace('$$', 'sr REAL,\ncr REAL,\ngamma REAL,')
     # ranges = [4.5,4.5,np.deg2rad(30)]
 
-    # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
-    #     os.remove(dbFile)
-    #     dbExist = False
-    # if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
-    #     os.remove(nbrDbFile)
+    # if os.path.exists(nbrDbFile):  os.remove(nbrDbFile)
 
 
     # with sqlConnect(dbFile) as con, sqlConnect(nbrDbFile) as conNbr:
@@ -245,16 +234,20 @@ if __name__ == "__main__":
     #     # create the geometry list here
     #     newGeomList =np.stack( np.mgrid[2.0:2.0:1j, 0:10:101j, 0:90:19j], axis=3).reshape(-1,3)
     #     newGeomList[:,2] = np.deg2rad(newGeomList[:,2])
-    #     # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
-    #     # if dbExist: 
-    #     #     cur.execute('select rho,phi from geometry')
-    #     #     oldTable = np.array(cur.fetchall())
-    #     #     if oldTable.size:
-    #     #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
-    #     #         if dupInd.size:
-    #     #             print("%s duplicates found in new list of geometries"%dupInd.size)
-    #     #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
-
+    #     if dbExist:
+    #         cur.execute('select sr,cr,gamma from geometry')
+    #         # sqlite returns tuple and python being strongly typed, they have to manually cast
+    #         oldTable = [list(i) for i in cur.fetchall()] 
+    #         if len(oldTable):
+    #             # weired, direct numpy approach not working properly
+    #             dupInd = np.array([i in oldTable for i in newGeomList.tolist()])
+    #             dSize = dupInd[dupInd==True].shape[0]
+    #             uSize = dupInd[dupInd==False].shape[0]
+    #             if uSize:
+    #                 print("{} geometries already exist in the old database, {} additional geometries will be added".format(
+    #                     dSize, uSize)
+    #                 )
+    #                 newGeomList = newGeomList[~dupInd]
 
 
     #     assert newGeomList.size, "No new geometries to add"
@@ -288,11 +281,7 @@ if __name__ == "__main__":
     # sql_script = sql_script.replace('$$', 'rho REAL,\nphi REAL,')
     # ranges = [4.5,np.deg2rad(30)]
 
-    # if dbExist:                    # remove old db if you want or comment it off if want to append to existing database
-    #     os.remove(dbFile)
-    #     dbExist = False
-    # if os.path.exists(nbrDbFile):  # mandatorily remove nbr db
-    #     os.remove(nbrDbFile)
+    # if os.path.exists(nbrDbFile):  os.remove(nbrDbFile)
 
 
     # with sqlConnect(dbFile) as con, sqlConnect(nbrDbFile) as conNbr:
@@ -306,15 +295,20 @@ if __name__ == "__main__":
     #     # create the geometry list here
     #     newGeomList =np.stack( np.mgrid[0.1:5.0:50j,0:180:181j], axis=2).reshape(-1,2)
     #     newGeomList[:,1] = np.deg2rad(newGeomList[:,1])
-    #     # if db exists then check if any duplicate geometry is being passed, if yes, then remove it
-    #     # if dbExist: 
-    #     #     cur.execute('select rho,phi from geometry')
-    #     #     oldTable = np.array(cur.fetchall())
-    #     #     if oldTable.size:
-    #     #         dupInd = np.any(np.isin( oldTable, newGeomList), axis=1)
-    #     #         if dupInd.size:
-    #     #             print("%s duplicates found in new list of geometries"%dupInd.size)
-    #     #             newGeomList = np.delete(newGeomList, np.where(dupInd), axis=0) # delete duplicates
+    #     if dbExist:
+    #         cur.execute('select rho,phi from geometry')
+    #         # sqlite returns tuple and python being strongly typed, they have to manually cast
+    #         oldTable = [list(i) for i in cur.fetchall()] 
+    #         if len(oldTable):
+    #             # weired, direct numpy approach not working properly
+    #             dupInd = np.array([i in oldTable for i in newGeomList.tolist()])
+    #             dSize = dupInd[dupInd==True].shape[0]
+    #             uSize = dupInd[dupInd==False].shape[0]
+    #             if uSize:
+    #                 print("{} geometries already exist in the old database, {} additional geometries will be added".format(
+    #                     dSize, uSize)
+    #                 )
+    #                 newGeomList = newGeomList[~dupInd]
 
 
 

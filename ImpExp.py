@@ -10,6 +10,7 @@ from sqlite3 import connect as sqlConnect, Row as sqlRow
 from geometry import geomObj
 # initiate the geometry object inside the geometry file and call the methods from there
 
+
 def parseResult(file):
     # Collects any valid number and returns the result as a string
     with open(file, 'r') as f: txt = f.read()
@@ -262,7 +263,7 @@ def ImportJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger):
             calcFile= "{0}/{1}/{1}.calc".format(exportDir, calcDir) # calcfile name
             if os.path.isfile(calcFile):                            # is this job successful?
 
-                jobs.append([dirFull,calcFile,pesDir,iGl,isZipped,isDel, logger.info if np==1 else print])
+                jobs.append([dirFull,calcFile,pesDir,iGl,isZipped,isDel,logger.info if np==1 else print])
                 geomIds.append(geomId)
 
         if np==1:
@@ -290,13 +291,13 @@ def ImportJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger):
 
 
 # WARNING::: `ImportCalc` deletes and moves the files but the database is not updated simultaneously and the same is done 
-# at the end to easily# use multiprocessing here. usually this doesnot make any  problem, 
+# at the end to easily use multiprocessing here. usually this doesnot make any  problem, 
 # but if the import process carshes at some mid way, then the relevant files will be deleted/moved but no information 
 # will be present in the database
 #^^^ fix this somehow
-#^^^ one solution is don not delte the files. and if reimport needs to be done then it will just replace the files in the GeomData
+#^^^ one solution is to not delete the files. and if reimport needs to be done then it will just replace the files in the GeomData
 
-#NOTE: add an option to check the length of the result data being parsed, and stop if thers something wrong. 
+#NOTE: add an option to check the length of the result data being parsed, and stop if there's something wrong. 
 # This will break the above system
 
 def ImportCalc(arg):
@@ -329,7 +330,6 @@ def ImportCalc(arg):
 
 
 def createRunJob(molInfo, file):
-
     txt = '''        #!/usr/bin/python
 
         import os, subprocess
