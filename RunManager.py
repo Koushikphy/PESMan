@@ -68,8 +68,8 @@ molInfo = config['molInfo']
 
 
 isParallel= process >1  # use parallel implementation
-if isParallel: molInfo['proc'] = '1'
-
+# if isParallel: molInfo['proc'] = '1'
+procRun = '1' if isParallel else molInfo['proc']
 
 # create rundir and impdir if does'nt exist
 # for fold in [runDir, impDir]:
@@ -143,7 +143,7 @@ def utilityFunc(arg): # getting one single individual job directory, inside the 
     logger.info("Running Molpro Job {} ...".format(baseName))
 
     exitcode = subprocess.call(
-            [molInfo['exe'], "-d", molInfo['scrdir'], "-W .", "-n", molInfo['proc'], baseName+'.com']+ molInfo['extra']
+            [molInfo['exe'], "-d", molInfo['scrdir'], "-W .", "-n", procRun, baseName+'.com']+ molInfo['extra']
         )
 
     if exitcode==0:
@@ -152,12 +152,11 @@ def utilityFunc(arg): # getting one single individual job directory, inside the 
         if parseIteration(baseName):
             file = "{}.calc".format(baseName)
             os.rename( file+'_', file)    # rename .calc_ file so that it can be imported
-            # delete the corresponding export job directory if its successful
     else:
         logger.info("\nJob Failed {} \n\n".format(baseName))
 
     os.chdir(mainDirectory)
-    return exitcode==0   # let the main loop know this job is successful
+    # return exitcode==0   # let the main loop know this job is successful
 
 
 
@@ -203,7 +202,7 @@ if __name__ == "__main__":
 
             if jobCounter >= maxJobs : break
 
-
+        pool.close()
         logger.info("Reading results from database...")
         parseMultiEnr_Util() if calcId==1 else parseMrciDdrNACT_Util()
 

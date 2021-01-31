@@ -32,7 +32,6 @@ def readDB(db, calcId, cols):
 
 
 
-
 # def parseEnr(resArr, resDir):
 #     # resArr contains geoms and results
 #     gRes = open(resDir+'/Enr.dat', "wb")
@@ -92,29 +91,48 @@ def readDB(db, calcId, cols):
 
 
 # # analytical NACT for scattering case
-# def getTauTheta(geomDat):
-#     # now geomdat has values rho,theta,phi,grad1,.......
-#     dth = np.deg2rad(0.03)
-#     rho,theta,phi = geomDat[:3]
-#     grads = geomDat[3:].reshape(3,3)
-#     # mainCart = geomObj.getCart(rho, theta, phi)
-#     # now calculate the dx/dtheta
+def getTauTheta(geomDat):
+    # now geomdat has values rho,theta,phi,grad1,.......
+    dth = np.deg2rad(0.02)
+    rho,theta,phi = geomDat[:3]
+    grads = geomDat[9:-3].reshape(3,3,3) # first `3` is number of nact
 
-#     thePlCart = geomObj.getCart(rho, theta+dth, phi)
-#     theMnCart = geomObj.getCart(rho, theta-dth, phi)
-#     gradTheta = (thePlCart-theMnCart)/(2.0*dth)
-#     tauTh = np.abs(np.einsum('ij,ij',grads,gradTheta))
-#     return np.array([rho,theta, phi,tauTh])
+    thePlCart = geomObj.getCart(rho, theta+dth, phi)
+    theMnCart = geomObj.getCart(rho, theta-dth, phi)
+    gradTheta = (thePlCart-theMnCart)/(2.0*dth)
+    tauTh = np.abs(np.einsum('kij,ij->k',grads,gradTheta))
+    return np.append([rho,theta, phi],tauTh)
 
 
+def getTauPhi(geomDat):
+    # now geomdat has values rho,theta,phi,grad1,.......
+    dphi = np.deg2rad(0.02)
+    rho,theta,phi = geomDat[:3]
+    grads = geomDat[9:-3].reshape(3,3,3)
 
-# def parseNACTscatAna(resArr):
-#     result = np.apply_along_axis(getTauTheta, 1, resArr)
+    phiPlCart = geomObj.getCart(rho, theta, phi+dphi)
+    phiMnCart = geomObj.getCart(rho, theta, phi-dphi)
 
-#     file = open('TAU-THETA.dat','wb')
-#     for rho in np.unique(result[:,0]):
-#         saveData(file, result[result[:,0]==rho])
+    gradPhi = (phiPlCart-phiMnCart)/(2.0*dphi)
 
+    tauPh = np.abs(np.einsum('kij,ij->k',grads,gradPhi))
+    return np.append([rho,theta, phi],tauPh)
+
+
+def parseNACTscatAna(resArr, resDir):
+    tauTh = np.apply_along_axis(getTauTheta, 1, resArr)
+    tauPh = np.apply_along_axis(getTauPhi, 1, resArr)
+
+    tauTh[:,[1,2]] = np.rint(np.rad2deg(tauTh[:,[1,2]]))
+    tauPh[:,[1,2]] = np.rint(np.rad2deg(tauPh[:,[1,2]]))
+
+    with open(resDir+'/TauTheta.dat','wb') as f, open(resDir+'/TauPhi.dat','wb') as g:
+        for theta in np.unique(tauTh[:,1]):
+            ind = np.where(tauTh[:,1]==theta)
+            np.savetxt(f,tauTh[ind],delimiter='\t',fmt='%.8f')
+            np.savetxt(g,tauPh[ind],delimiter='\t',fmt='%.8f')
+            f.write('\n')
+            g.write('\n')
 
 
 
