@@ -37,7 +37,7 @@ def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList,
     # Main export function that exports a given number of jobs for a specified calcid type
     # following collects the geomid that are exportable and the calc table id which will be used as their start info
     if calcId > 1: # Mrci or nact export
-        ExpGeomList = GetExpMrciNactJobs(dB,calcId, jobs, constDb)
+        ExpGeomList = GetExpMrciNactJobs(dB,calcId, jobs, gidList, constDb)
     else:
         ExpGeomList = GetExpGeomNearNbr(dB,calcId, gidList, sidList, jobs, depth, constDb, includePath)
 
@@ -218,7 +218,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
 
 
 
-def GetExpMrciNactJobs(dB, calcId, jobs, constDb):
+def GetExpMrciNactJobs(dB, calcId, jobs, gidList, constDb):
 
     with sqlConnect(dB) as con:
         cur = con.cursor()
@@ -226,7 +226,9 @@ def GetExpMrciNactJobs(dB, calcId, jobs, constDb):
         cur.execute("SELECT GeomId FROM Calc WHERE CalcId=? union SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,calcId))
         ExcludeGeomIds = {i for (i,) in cur}  # all exported jobs
 
-        constQuery = ' and GeomId in (SELECT Id FROM Geometry where '+ constDb +' )' if constDb else ''
+        #---WARNING:::: turning off constraint, its not that used anyway
+        # constQuery =      ' and GeomId in (SELECT Id FROM Geometry where {} )'.format(constDb) if constDb else ''
+        constQuery = ' and GeomId in ({})'.format(','.join(map(str,gidList)))
         cur.execute("SELECT Id,GeomId FROM Calc WHERE CalcId = 1" + constQuery)
 
         expGClist = []

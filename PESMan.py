@@ -343,7 +343,6 @@ if __name__ == '__main__':
     if args.subcommand == 'export':    # expport jobs
 
         calcId  = args.calc_id
-        jobs    = args.jobs
         np      = args.np
         depth   = args.Depth
         gidList = args.gid_list
@@ -352,6 +351,8 @@ if __name__ == '__main__':
         const   = args.const
         inclp   = args.incl_path
         par     = args.parallel
+        # if gid list is provided then use the number of jobs as the length of the gidlist
+        jobs    = len(gidList) if gidList else args.jobs
 
         txt = dedent("""  PESMan Export
 -------------------------------------------------
