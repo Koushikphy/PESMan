@@ -249,7 +249,7 @@ def successiveExport(dB, calcId, jobs, gidList, constDb):
         # if its left in the expcalc (for calcid >1) then it's calcid=1/mcscf was obviously successful.
         sqlQuery = '''SELECT GeomId,Id FROM Calc 
                     WHERE CalcId = 1 and
-                    GeomId in (SELECT GeomId from ExpCalc where CalcId BETWEEN 2 and {0}) and 
+                    GeomId in (SELECT GeomId from ExpCalc where CalcId={0}) and 
                     GeomId not in (SELECT GeomId FROM Calc WHERE CalcId={1} UNION SELECT GeomId FROM ExpCalc WHERE CalcId={1}) 
                     {3} LIMIT {2}'''.format(
                         calcId-1, calcId,jobs, ' and GeomId in ({})'.format(','.join(map(str,gidList))) if gidList else ''
