@@ -36,10 +36,13 @@ def ExportJobs(dB, calcId, jobs, np, exportDir, pesDir, templ, gidList, sidList,
                     depth, constDb, includePath, molInfo, par, logger):
     # Main export function that exports a given number of jobs for a specified calcid type
     # following collects the geomid that are exportable and the calc table id which will be used as their start info
-    if calcId > 1: # Mrci or nact export
+    if calcId ==1: # Mrci or nact export
+        ExpGeomList = GetExpGeomNearNbr(dB,calcId, gidList, sidList, jobs, depth, constDb, includePath)
+    elif calcId==2:
         ExpGeomList = GetExpMrciNactJobs(dB,calcId, jobs, gidList, constDb)
     else:
-        ExpGeomList = GetExpGeomNearNbr(dB,calcId, gidList, sidList, jobs, depth, constDb, includePath)
+        raise Exception('No calculation is defined for CalId=',calcId)
+        ExpGeomList = successiveExport(dB,calcId, jobs, gidList, constDb)
 
     with sqlConnect(dB) as con:
         con.row_factory=sqlRow
@@ -222,23 +225,42 @@ def GetExpMrciNactJobs(dB, calcId, jobs, gidList, constDb):
 
     with sqlConnect(dB) as con:
         cur = con.cursor()
+        # #---WARNING:::: turning off constraint, its not that used anyway
+        sqlQuery = '''SELECT GeomId,Id FROM Calc 
+                    WHERE CalcId = 1 and 
+                    GeomId not in (SELECT GeomId FROM Calc WHERE CalcId={0} UNION SELECT GeomId FROM ExpCalc WHERE CalcId={0}) 
+                    {2} LIMIT {1}'''.format(
+                        calcId,jobs, ' and GeomId in ({})'.format(','.join(map(str,gidList))) if gidList else ''
+                    )
 
-        cur.execute("SELECT GeomId FROM Calc WHERE CalcId=? union SELECT GeomId FROM ExpCalc WHERE CalcId=?",(calcId,calcId))
-        ExcludeGeomIds = {i for (i,) in cur}  # all exported jobs
-
-        #---WARNING:::: turning off constraint, its not that used anyway
-        # constQuery =      ' and GeomId in (SELECT Id FROM Geometry where {} )'.format(constDb) if constDb else ''
-        constQuery = ' and GeomId in ({})'.format(','.join(map(str,gidList)))
-        cur.execute("SELECT Id,GeomId FROM Calc WHERE CalcId = 1" + constQuery)
-
-        expGClist = []
-        for startId, geomId in cur:
-            if geomId in ExcludeGeomIds: continue                 # geometry already exist, skip
-            expGClist.append((geomId, startId))
-            if len(expGClist)==jobs: break                        # got everything needed
+        cur.execute(sqlQuery)
+        expGClist = cur.fetchall()
 
     assert expGClist, "No Exportable geometries found"            # preventing null exports
     return expGClist
+
+
+# have to export calcid which is usually more than 2, will export those jobs only that failed in calcid >2
+def successiveExport(dB, calcId, jobs, gidList, constDb):
+    with sqlConnect(dB) as con:
+        cur = con.cursor()
+
+        # get all geoms that is left in the expcalc table for all previous calc ids (greater than 1)
+        # if its left in the expcalc (for calcid >1) then it's calcid=1/mcscf was obviously successful.
+        sqlQuery = '''SELECT GeomId,Id FROM Calc 
+                    WHERE CalcId = 1 and
+                    GeomId in (SELECT GeomId from ExpCalc where CalcId BETWEEN 2 and {0}) and 
+                    GeomId not in (SELECT GeomId FROM Calc WHERE CalcId={1} UNION SELECT GeomId FROM ExpCalc WHERE CalcId={1}) 
+                    {3} LIMIT {2}'''.format(
+                        calcId-1, calcId,jobs, ' and GeomId in ({})'.format(','.join(map(str,gidList))) if gidList else ''
+                    )
+
+        cur.execute(sqlQuery)
+        expGClist = cur.fetchall()
+
+    assert expGClist, "No Exportable geometries found"            # preventing null exports
+    return expGClist
+
 
 
 
