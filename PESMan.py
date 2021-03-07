@@ -415,6 +415,7 @@ if __name__ == '__main__':
 
     elif args.subcommand == 'addcalc': # add calculation infos
 
+        assert all(['-' not in i for i in clcInfo['type']]), 'Calc name should not contain "-"'
         with sqlConnect(dB) as con: 
             cur = con.cursor()
             cur.execute('SELECT Type,Id from CalcInfo')
