@@ -3,7 +3,9 @@ import os
 import sys
 # import shutil
 import subprocess
+import numpy as np
 from multiprocessing import Pool
+from sqlite3 import connect as sqlConnect
 from PESMan import makeLogger, parseConfig
 from ReadResults import parseMrciDdrNACT_Util, parseMultiEnr_Util
 from ImpExp import ExportJobs, ImportJobs
@@ -160,6 +162,22 @@ def utilityFunc(arg): # getting one single individual job directory, inside the 
 
 
 
+def haltedExport(dB):
+    with sqlConnect(dB) as con:
+        cur = con.cursor()
+        cur.execute('select id from geometry where id not in (select geomid from expcalc) and id not in (select geomid from calc)')
+        ntx = [i for (i,) in cur]
+        if len(ntx)==0:
+            return False
+        cur.execute('select geomid from calc where calcid=1')
+        imp = [i for (i,) in cur]
+    mat=np.abs(np.subtract.outer(ntx,imp))
+    indx,ind=np.where(mat==mat.min())
+
+    return ntx[indx[0]], imp[ind[0]]
+
+
+
 if __name__ == "__main__":
     jobCounter = 0 # keeps a counter for the done jobs
     mainDirectory = os.getcwd()
@@ -174,12 +192,22 @@ if __name__ == "__main__":
             else:
                 thisJobs = 1 # not parallel means always export just one job
                 logger.debug('  Starting Job No : {}\n{}'.format( jobCounter+1, '*'*75))
-
-
-            # will be exporting `perIterJob` number of jobs to run them in parallel
-            thisExpDir, exportId, jobDirs = ExportJobs(dB, calcId, thisJobs, process, expDir,pesDir, templ, gidList, sidList, depth,
-                                                                constraint, includePath, molInfo, isParallel, logger)
-
+            
+            try:
+                # will be exporting `perIterJob` number of jobs to run them in parallel
+                thisExpDir, exportId, jobDirs = ExportJobs(dB, calcId, thisJobs, process, expDir,pesDir, templ, 
+                                        gidList, sidList, depth, constraint, includePath, molInfo, isParallel, logger)
+            except AssertionError:
+                if includePath and calcId==1: # only try when multi calculation and include path in on, for simplicity
+                    gids = haltedExport(dB)
+                    if(gids):
+                        logger.info('{0}\nBroken neighbour list detected, attempting brute-force export\n{0}\n'.format('='*75))
+                        thisExpDir, exportId, jobDirs = ExportJobs(dB, calcId, 1, 1, expDir,pesDir, templ, 
+                                    [gids[0]], [gids[1]], depth,constraint, includePath, molInfo, isParallel, logger)
+                    else:
+                        raise AssertionError('No more gemetry is avilable to export.')
+                else:
+                    raise 
             jobCounter += len(jobDirs)  # kept if exactly `perIterJob` number of jobs not exported
             thisRunDir = thisExpDir     # job will be run in the same folder
             thisImpDir = thisRunDir     # job will be imported from the same folder
