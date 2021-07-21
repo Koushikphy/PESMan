@@ -26,14 +26,17 @@ else :
 
 
 
-
 class MyFormatter(logging.Formatter):
     def __init__(self, fmt=None, datefmt="%I:%M:%S %p %d-%m-%Y"):
         logging.Formatter.__init__(self, fmt, datefmt)
 
     def format(self, record):
-        if record.levelno == logging.INFO: self._fmt = "%(message)s"
-        elif record.levelno == logging.DEBUG: self._fmt = "[%(asctime)s] - %(message)s"
+        if sys.version_info.major>2:
+            if record.levelno == logging.INFO: self._style._fmt = "%(message)s"
+            elif record.levelno == logging.DEBUG: self._style._fmt = "[%(asctime)s] - %(message)s"
+        else:
+            if record.levelno == logging.INFO: self._fmt = "%(message)s"
+            elif record.levelno == logging.DEBUG: self._fmt = "[%(asctime)s] - %(message)s"
         result = logging.Formatter.format(self, record)
         return result
 
