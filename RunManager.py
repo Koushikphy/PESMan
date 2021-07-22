@@ -177,6 +177,15 @@ def haltedExport(dB):
     return ntx[indx[0]], imp[ind[0]]
 
 
+def readResult():
+    try:
+        logger.info("\nReading results from database.")
+        parseMultiEnr_Util() if calcId==1 else parseMrciDdrNACT_Util()
+    except Exception as e:
+        logger.info("\nError reading results from database.\n{}".format(e))
+
+
+
 
 if __name__ == "__main__":
     jobCounter = 0 # keeps a counter for the done jobs
@@ -218,21 +227,16 @@ if __name__ == "__main__":
             else:
                 for i in jobDirs : utilityFunc([thisRunDir,i])
 
-
             logger.info('')
 
             expFile = thisImpDir+'/export.dat'
             ImportJobs(dB, process, expFile, pesDir, ignoreFiles, deleteAfterImport, zipAfterImport, logger)
 
-            if not jobCounter%readResultsStep:
-                logger.info("\nReading results from database.")
-                parseMultiEnr_Util() if calcId==1 else parseMrciDdrNACT_Util()
-
+            if not jobCounter%readResultsStep:readResult()
             if jobCounter >= maxJobs : break
 
-        pool.close()
-        logger.info("Reading results from database...")
-        parseMultiEnr_Util() if calcId==1 else parseMrciDdrNACT_Util()
+        if isParallel: pool.close()
+        readResult()
 
         logger.info("Total number of successful jobs done : {}\n{}\n".format(jobCounter, '*'*75))
     except AssertionError as e:

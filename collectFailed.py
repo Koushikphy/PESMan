@@ -13,6 +13,9 @@ from ImpExp import parseResult
 
 config = parseConfig()
 dB = config['DataBase']['db']
+trim = 4
+
+
 
 with sqlConnect(dB) as con:
     cur = con.cursor()
@@ -63,10 +66,9 @@ with sqlConnect(dB) as con:
     print('Number of new results added to database {}\n'.format(len(result)))
 
 
-
     # now save the result in a datafile, query result from two tables, check the calc id
     cur.execute("SELECT geomid,results from Calc where CalcId=? union SELECT geomid,results from SemiCalc where CalcId=?",(2,2))
-    CalcRow = [[i]+j.split()[:3] for i,j in cur]  # number 3 has to decided <-- 3 mrci energy
+    CalcRow = [[i]+j.split()[:trim] for i,j in cur]  # number 3 has to decided <-- 3 mrci energy
     print('Result collected from database {}\n'.format(len(CalcRow)))
     try:
         CalcRow = np.array(CalcRow, dtype=np.float64)
