@@ -415,16 +415,14 @@ if __name__ == '__main__':
         except:
             logger.exception('PESMan import failed')
 
-
     elif args.subcommand == 'addcalc': # add calculation infos
 
         assert all(['-' not in i for i in clcInfo['type']]), 'Calc name should not contain "-"'
         with sqlConnect(dB) as con: 
             cur = con.cursor()
             cur.execute('SELECT Type,Id from CalcInfo')
-            existingCalcs = dict([[i,int(j)] ] for i,j in cur.fetchall() )
+            existingCalcs = {i:int(j) for i,j in cur.fetchall()}
 
-            # assert any([i not in existingNames for i in clcInfo['type']]), "Some Calc name(s) already exists in database"
             for nam, tem, des in izl(clcInfo['type'], clcInfo['template'], clcInfo['desc'], fillvalue=''):
                 with open(tem) as f: stemp = f.read()
                 calcNumber = existingCalcs.get(nam,0)
