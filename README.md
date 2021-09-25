@@ -32,7 +32,7 @@
 5. To add some new geometries to an existing data base, re-run the `CreateNewDbs.py` by providing the __new complete list of full geometries__. The script will check for existing geometries in the data base and update it with new additional geometries. This will modify all the neighbour geometry information, but won't interfere with any existing results in database.
 6. If some calc is semi successful i.e. if like mrci enrgy and ddr are done in a single calc and energy is successful but nact is failed, then run the `collectFailed.py` by providing the `export.dat` as a command-line argument to store the semi successful jobs in a new table in database. This script will also store the result in datafile.
 7. Running `python PESMan.py addcalc` for first time will add the calc names and template to the database. If you run the same again with same calc names, PESMan instead of inserting a new calcinfo, will update the existing info template
-
+8. In case of broken neighbour list, RunManager searches for the closest neighbour pair of incomplete jobs, and performs a brute-force export to keep the job going.
 
 
 ### Steps to run for H3:
