@@ -227,10 +227,13 @@ def GetExpMrciNactJobs(dB, calcId, jobs, gidList, constDb):
         cur = con.cursor()
         # #---WARNING:::: turning off constraint, its not that used anyway
         sqlQuery = '''SELECT GeomId,Id FROM Calc 
-                    WHERE CalcId = 1 and 
+                    WHERE CalcId = 1 and {3}
                     GeomId not in (SELECT GeomId FROM Calc WHERE CalcId={0} UNION SELECT GeomId FROM ExpCalc WHERE CalcId={0}) 
                     {2} LIMIT {1}'''.format(
-                        calcId,jobs, ' and GeomId in ({})'.format(','.join(map(str,gidList))) if gidList else ''
+                        calcId,
+                        jobs, 
+                        ' and GeomId in ({})'.format(','.join(map(str,gidList))) if gidList else '',
+                        ' and GeomId in ({})'.format(constDb) if constDb else ''
                     )
 
         cur.execute(sqlQuery)
