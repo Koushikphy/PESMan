@@ -93,7 +93,7 @@ class Scattering(object):
 
 
     def AreaTriangle(self,a,b,c):
-        """ area of a tringle with sides a,b,c """
+        """ area of a triangle with sides a,b,c """
         ps = (a+b+c)/2.0
         ar = ps*(ps-a)*(ps-b)*(ps-c)
         # negative area due to round off errors set to zero
@@ -164,7 +164,7 @@ class Scattering(object):
         tmpdat = dat[[1, 2, 0]] - dat
         dists  = np.linalg.norm(tmpdat,axis=1)
 
-        path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohrs, getCart returns in angstorm
+        path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohr, getCart returns in angstrom
         # channel = np.abs(dists[0] + dists[2] - dists[1]) < 1.0e-10
         linear  = np.allclose(theta,np.pi/2.0)# np.abs(theta) < 1.0e-10
 
@@ -218,7 +218,7 @@ class Jacobi(object):
         tmpdat = dat[[1, 2, 0]] - dat
         dists  = np.linalg.norm(tmpdat,axis=1)
 
-        path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohrs, getCart returns in angstorm
+        path    = np.any(dists < (0.5*bohr2ang)) #0.5 bohr, getCart returns in angstrom
         channel = np.abs(dists[1] + dists[2] - dists[0]) < 1.0e-10
         linear  = np.abs(gamma) < 1.0e-10
 

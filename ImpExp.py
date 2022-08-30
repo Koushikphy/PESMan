@@ -182,7 +182,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
         fullGeomList = []                                         # a naive approach: store all the missed geometries
         for geomId, nbrList in cur:
             if geomId in ExcludeGeomIds: continue                 # geometry already exist, skip
-            if gidList and DictStartId[geomId]>=0:                # negetive start id will go to main neighbour searching
+            if gidList and DictStartId[geomId]>=0:                # negative start id will go to main neighbor searching
                 nbrId = DictStartId[geomId]                       # i.e. 0 or positive startid given
                 if not nbrId :                                    # 0 startid nothing to do here
                     expGClist.append((geomId, 0))
@@ -193,7 +193,7 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
                 continue
 
             nbrList =list(map(int, nbrList.split()))              # Care ful about integer mapping
-            nbrId = nbrList[0]                                    # for this initial loop only consider first neighbour
+            nbrId = nbrList[0]                                    # for this initial loop only consider first neighbor
 
             if nbrId in CalcGeomIds:
                 expGClist.append((geomId, DictCalcId[nbrId]))     # got one match
@@ -209,9 +209,9 @@ def GetExpGeomNearNbr(dB, calcId, gidList, sidList, jobs, maxDepth, constDb, inc
             for geomId, nbrList in fullGeomList:
                 if geomId in exportedGeom: continue
 
-                nbrId = nbrList[d]                                 # get d-th neighbour
+                nbrId = nbrList[d]                                 # get d-th neighbor
                 if nbrId in CalcGeomIds:
-                    expGClist.append((geomId, DictCalcId[nbrId]))  # got one match now don't search for any other neighbours
+                    expGClist.append((geomId, DictCalcId[nbrId]))  # got one match now don't search for any other neighbors
                     if len(expGClist)==jobs:
                         return expGClist
                     exportedGeom.add(geomId)
@@ -272,7 +272,7 @@ def ImportJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger):
     # imports jobs from a given export.dat file
 
     exportDir = os.path.abspath(os.path.dirname(expFile))   # get the main export directory
-    exportId  = re.findall(r'Export(\d+)-', exportDir)[0]     # get the export id, from the directroy name
+    exportId  = re.findall(r'Export(\d+)-', exportDir)[0]     # get the export id, from the directory name
     # so it seems the export.dat is really not needed to import a job, just the path directory is required
 
     with sqlConnect(dB) as con:
@@ -318,8 +318,8 @@ def ImportJobs(dB, np, expFile, pesDir, iGl, isDel, isZipped, logger):
 
 
 # WARNING::: `ImportCalc` deletes and moves the files but the database is not updated simultaneously and the same is done 
-# at the end to easily use multiprocessing here. usually this doesnot make any  problem, 
-# but if the import process carshes at some mid way, then the relevant files will be deleted/moved but no information 
+# at the end to easily use multiprocessing here. usually this does not make any  problem, 
+# but if the import process crashes at some mid way, then the relevant files will be deleted/moved but no information 
 # will be present in the database
 #^^^ fix this somehow
 #^^^ one solution is to not delete the files. and if reimport needs to be done then it will just replace the files in the GeomData

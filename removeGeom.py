@@ -16,8 +16,8 @@ def removeGeom(geom):
     else:
         print("Directory %s doesn't exists"%path)
 
-    # use the below to only delte the wfu from inside the tar file
-    # path to this geom archieve, hardcoded for simplicity, change according to use
+    # use the below to only delete the wfu from inside the tar file
+    # path to this geom archive, hardcoded for simplicity, change according to use
     # path = 'GeomData/geom%d/multi1.tar.bz2'%geom  
 
     # if not os.path.exists(path) :
@@ -26,7 +26,7 @@ def removeGeom(geom):
 
     # dPath = path.strip('.tar.bz2').strip('/')  # directory path to extract
 
-    # # unarchived directory exists
+    # # unarchive directory exists
     # if os.path.exists(dPath):
     #     print("Folder %s exists, this should not have happened. Check this geom."%dPath)
     #     return
@@ -49,7 +49,7 @@ def removeGeom(geom):
 
     # os.remove(path) # delete older archive
 
-    # shutil.make_archive(dPath, 'bztar', root_dir=dPath, base_dir='./')   # create new archieve
+    # shutil.make_archive(dPath, 'bztar', root_dir=dPath, base_dir='./')   # create new archive
     # shutil.rmtree(dPath)        # remove extracted directory
     # print('wfu successfully removed from %s'%path)
 

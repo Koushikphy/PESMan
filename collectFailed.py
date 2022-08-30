@@ -31,7 +31,7 @@ with sqlConnect(dB) as con:
     for expFile in sys.argv[1:]: # multiple expdirs is allowed through list input
 
         exportDir = os.path.abspath(os.path.dirname(expFile))   # get the main export directory
-        exportId  = re.findall(r'Export(\d+)-', exportDir)[0]     # get the export id, from the directroy name
+        exportId  = re.findall(r'Export(\d+)-', exportDir)[0]     # get the export id, from the directory name
         calcId    = re.findall(r'Export\d+-\w+(\d+)',exportDir)[0]
         cur.execute("SELECT GeomId,CalcDir FROM ExpCalc where ExpId=?",(exportId,))
 

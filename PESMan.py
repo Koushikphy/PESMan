@@ -326,7 +326,7 @@ def parseConfig(configFile='pesman.config'):
     config['CalcTypes']['template'] = [i.strip() for i in config['CalcTypes']['template'].split(',')]
     config['CalcTypes']['desc'] = config['CalcTypes'].get('desc','')
     config['molInfo']['extra'] = config['molInfo'].get('extra','').split(',')
-    config['molInfo']['exe'] = config['molInfo'].get('exe','molpro')  #<-- default mopro executable
+    config['molInfo']['exe'] = config['molInfo'].get('exe','molpro')  #<-- default molpro executable
     return config
 
 
@@ -448,7 +448,7 @@ if __name__ == '__main__':
         for path in paths: # if d not provided, its empty anyway
             zipOne(path)
 
-        # `-all` is an optional argument with optional values of unknown lenght
+        # `-all` is an optional argument with optional values of unknown length
         # i.e `-all`, `-all abc` , `-all abc xyz` all are valid
         if allPat is not None:            # means `-all` flag is given
             if not allPat:                # `-all` is given without any values

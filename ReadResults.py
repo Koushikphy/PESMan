@@ -48,7 +48,7 @@ def readDB(db, calcId, cols):
 #     wfm = geomObj.wfm
     
 #     # wfm is in shape of (masses, frequencies (i.e 2), coordinates (i.e. 3; x,y,z))
-#     # given each result string holdes the gradiend data for all the ireps/pairs
+#     # given each result string holds the gradient data for all the ireps/pairs
 #     # gradRes is in shape of (rows, pairs/ireps, atoms, coord)
 #     gradRes = resArr[:,2:].reshape(-1,pairs,atoms,3)
 #     rhoPhi  = resArr[:,:2]

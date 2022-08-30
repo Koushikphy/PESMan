@@ -52,7 +52,7 @@ END TRANSACTION;
 
 
 
-# a simple distance of atwo points on 2D, used in spectroscopic case
+# a simple distance of a two points on 2D, used in spectroscopic case
 #@jit('float64(float64[:,:], float64[:,:])')
 def distance(geom1, geom2):
     _,rho1,phi1 = geom1
@@ -63,7 +63,7 @@ def distance(geom1, geom2):
 
 
 
-# return cartesian corordinate with their centroid transalted to origin
+# return cartesian coordinate with their centroid translated to origin
 def centroid(geom):
     p = geomObj.getCart(*geom[1:])
     return p-np.mean(p, axis=0)
@@ -75,7 +75,7 @@ def kabsch_rmsd(p,q):
     p = np.ascontiguousarray(p)
     q = np.ascontiguousarray(q)
     c = np.dot(np.transpose(p), q)                   # covariance matrix
-    v, _, w = np.linalg.svd(c)                       # rotaion matrix using singular value decomposition
+    v, _, w = np.linalg.svd(c)                       # rotation matrix using singular value decomposition
     if (np.linalg.det(v) * np.linalg.det(w)) < 0.0 : # proper sign of matrix for right-handed coordinate system
         w[-1] = -w[-1]
     r= np.dot(v, w)                                  # kabsch rotation matrix
@@ -93,7 +93,7 @@ except:
 
 # Calculate list of geometries in ascending order of their RMSD from the `geom`
 def getKabsch(geom):
-    #accessing the full geomList and cartesians from the global scope
+    #accessing the full geomList and cartesian from the global scope
     # WARNING !!! Do not use this approach with multiprocessing in windows systems
     vGeomIndex =np.where(                               # return indexes where the geometries satisfies the condition
                     # (geomList[:,1]  >= geom[1]-ranges[0]) &   # commenting rho range check for hyper
@@ -109,13 +109,13 @@ def getKabsch(geom):
     # now calculate the rmsd
     lkabsch = np.array([kabsch_rmsd(cart[geomIndex], cart[i]) for i in vGeomIndex])
     index = lkabsch.argsort()[:lim] # get sorted index of first `lim` element
-    # return current geomid, geomid of nearest neighbour and their distances
+    # return current geomid, geomid of nearest neighbor and their distances
     return geom[0],geomList[vGeomIndex][index,0].astype(np.int64), lkabsch[index]
 
 
 # Calculate list of geometries in ascending order of their RMSD from the `geom`, only for spec
 def getKabsch_norm(geom):
-    #accessing the full geomList and cartesians from the global scope
+    #accessing the full geomList and cartesian from the global scope
     # WARNING !!! Do not use this approach with multiprocessing in windows systems
     vGeomIndex =np.where(                               # return indexes where the geometries satisfies the condition
                     (geomList[:,1]  >= geom[1]-ranges[0]) &
@@ -128,7 +128,7 @@ def getKabsch_norm(geom):
     geomIndex = np.searchsorted(geomList[:, 0], geom[0])
     lkabsch = np.array([distance(geomList[geomIndex], geomList[i]) for i in vGeomIndex])
     index = lkabsch.argsort()[:lim] # get sorted index of first `lim` element
-    # return current geomid, geomid of nearest neighbour and their distances
+    # return current geomid, geomid of nearest neighbor and their distances
     return geom[0],geomList[vGeomIndex][index,0].astype(np.int64), lkabsch[index]
 
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     #         # sqlite returns tuple and python being strongly typed, they have to manually cast
     #         oldTable = [list(i) for i in cur.fetchall()] 
     #         if len(oldTable):
-    #             # weired, direct numpy approach not working properly
+    #             # weird, direct numpy approach not working properly
     #             dupInd = np.array([i in oldTable for i in newGeomList.tolist()])
     #             dSize = dupInd[dupInd==True].shape[0]
     #             uSize = dupInd[dupInd==False].shape[0]
