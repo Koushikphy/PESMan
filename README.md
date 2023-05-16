@@ -1,8 +1,9 @@
 ## PESMan
-### A program to manage global PES calculations
+### A program to manage global _ab initio_ Potential Energy Surfae (PES) calculations using MOLPRO[^1] quantum chemistry software.
 
-
+[^1]: https://www.molpro.net/
 ## Basic commands:
+Every features of this package is controlled through the different subcommands of the `PESMan.py` code,
 * Use PESMan `export` to export job.
 * Use PESMan `import` to import job after successful run.
 * Use PESMan `zip`/`unzip` to archive or extract job folders.
